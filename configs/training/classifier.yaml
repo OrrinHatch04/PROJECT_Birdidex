@@ -1,0 +1,27 @@
+# Classifier training configuration.
+# TODO: Validate against actual dataset statistics before training.
+
+model:
+  backbone: "efficientnet_b3"  # timm model name — TODO: benchmark alternatives
+  pretrained: true
+  num_classes: null  # Set at runtime from LabelMap length
+
+training:
+  epochs: 50
+  batch_size: 32
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  optimizer: "adamw"
+  scheduler: "cosine"
+  early_stopping_patience: 10
+  mixed_precision: true  # Requires GPU
+
+data:
+  image_size: 224
+  train_split: 0.7
+  val_split: 0.15
+  test_split: 0.15
+
+output:
+  checkpoint_dir: "models/checkpoints/"
+  export_dir: "models/exports/"

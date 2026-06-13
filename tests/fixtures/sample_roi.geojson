@@ -1,0 +1,18 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "test_seq_roi"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [152.0, -27.5],
+        [153.5, -27.5],
+        [153.5, -26.5],
+        [152.0, -26.5],
+        [152.0, -27.5]
+      ]
+    ]
+  }
+}

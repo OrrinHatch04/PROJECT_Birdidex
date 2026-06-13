@@ -1,0 +1,22 @@
+# Evidence scoring weights for species ROI inclusion.
+# Higher weight = more influence on the final score.
+# TODO: Calibrate weights from known species lists after running the scanner.
+
+weights:
+  occurrence_count: 1.0      # Raw number of occurrence records inside ROI
+  occurrence_sources:
+    ala: 1.5                 # ALA has high coverage for Australia
+    gbif: 1.0
+    ebird: 0.8               # Recent-only API — lower historical weight
+    inaturalist: 1.0
+  keyword_evidence: 0.3      # Weak supplementary signal — keep low
+
+penalties:
+  outside_roi_fraction: 0.5  # Penalty if >50% of occurrences are outside ROI
+  captive_fraction: 0.8      # Penalty if many records are captive/cultivated
+  low_coordinate_precision: 0.9  # Penalty for records with large uncertainty_m
+
+thresholds:
+  min_occurrence_count: 3    # Minimum occurrence records to accept species
+  min_score: 0.5             # Minimum weighted score for inclusion
+  review_score: 0.3          # Species below min_score but above this go to review

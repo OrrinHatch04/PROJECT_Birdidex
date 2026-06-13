@@ -1,0 +1,21 @@
+# Species filters applied before and after scanning.
+# TODO: Populate exclusion lists from authoritative IOC/Clements taxonomy.
+
+taxonomy:
+  # Only include species from these orders (Aves orders covering Australian birds).
+  # Leave empty to include all orders.
+  allowed_orders: []
+
+  # Exclude species flagged as domestic / introduced / feral where relevant.
+  exclude_domestic: true
+
+geographic:
+  # Minimum fraction of occurrence records that must fall inside the ROI polygon.
+  min_inside_roi_fraction: 0.1
+
+quality:
+  # Exclude occurrence records with coordinate uncertainty above this value (metres).
+  max_coordinate_uncertainty_m: 10000
+
+  # Exclude captive/cultivated records from the occurrence count.
+  exclude_captive: true

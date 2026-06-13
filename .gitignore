@@ -1,0 +1,59 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Testing / tooling
+.pytest_cache/
+.ruff_cache/
+.pyright/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Env
+.env
+
+# Data directories (preserve .gitkeep)
+data/raw/*
+data/interim/*
+data/processed/*
+data/manifests/*
+data/reports/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!data/manifests/.gitkeep
+!data/reports/.gitkeep
+
+# Model artefacts
+models/checkpoints/*
+models/exports/*
+models/quantized/*
+!models/checkpoints/.gitkeep
+!models/exports/.gitkeep
+!models/quantized/.gitkeep
+
+# Large binary / generated files
+*.pt
+*.pth
+*.onnx
+*.duckdb
+*.parquet
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# uv
+uv.lock
+
+# Jupyter checkpoints
+.ipynb_checkpoints/

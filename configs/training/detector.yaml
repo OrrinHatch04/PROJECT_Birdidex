@@ -1,0 +1,18 @@
+# Detector training configuration.
+# TODO: Decide on architecture (YOLO-family vs RT-DETR) based on edge latency targets.
+
+model:
+  architecture: "yolov8n"  # TODO: evaluate RT-DETR for RPi5 latency
+  pretrained: true
+  num_classes: 1  # binary: bird / not-bird
+
+training:
+  epochs: 100
+  batch_size: 16
+  image_size: 640
+  learning_rate: 1.0e-3
+  device: "auto"  # "auto" uses GPU if available, else CPU
+
+output:
+  checkpoint_dir: "models/checkpoints/"
+  export_dir: "models/exports/"

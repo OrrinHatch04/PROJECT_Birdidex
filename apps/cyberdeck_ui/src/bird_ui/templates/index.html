@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bird Pokedex</title>
+    <style>
+        body { font-family: monospace; background: #111; color: #eee; margin: 2rem; }
+        h1 { color: #7ec8e3; }
+        .placeholder { color: #888; }
+    </style>
+</head>
+<body>
+    <h1>Bird Pokedex</h1>
+    {% if species %}
+        <!-- TODO: Render species card with name, photo, facts, type/climate/habitat -->
+        <p>{{ species }}</p>
+    {% else %}
+        <p class="placeholder">Waiting for detection…</p>
+        <p class="placeholder">Point camera at a bird to begin.</p>
+    {% endif %}
+</body>
+</html>

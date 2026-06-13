@@ -1,0 +1,21 @@
+# Cyberdeck hardware configuration.
+# TODO: Fill in actual hardware specs after assembly.
+
+hardware:
+  platform: "raspberry_pi_5"  # TODO: confirm target platform
+  display:
+    type: "hdmi"              # TODO: update for specific display
+    width_px: 1920
+    height_px: 1080
+  camera:
+    module: "camera_module_3"  # TODO: confirm
+    autofocus: true
+
+battery:
+  low_warning_percent: 20
+  critical_percent: 10
+
+ui:
+  server_host: "0.0.0.0"
+  server_port: 8080
+  auto_open_browser: false  # Set true for kiosk mode

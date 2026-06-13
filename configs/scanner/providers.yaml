@@ -1,0 +1,37 @@
+# Provider configuration for the bird scanner.
+# Set enabled: false to skip a provider in the pipeline.
+
+providers:
+  ala:
+    enabled: true
+    base_url: "https://api.ala.org.au"
+    rate_limit_per_second: 1
+    max_records: 500
+
+  gbif:
+    enabled: true
+    base_url: "https://api.gbif.org/v1"
+    rate_limit_per_second: 1
+    max_records: 500
+
+  ebird:
+    enabled: true
+    requires_api_key: true  # Set EBIRD_API_KEY in .env
+    # Note: eBird free API only returns recent (30-day) observations.
+    # Weight eBird evidence conservatively in scoring.
+    rate_limit_per_second: 1
+    max_records: 200
+
+  inaturalist:
+    enabled: true
+    base_url: "https://api.inaturalist.org/v2"
+    rate_limit_per_second: 1
+    quality_grade: "research"
+    max_records: 500
+
+  web_search:
+    enabled: false  # TODO: set to true once SEARCH_API_KEY is configured
+    # Do NOT use Google directly. Plug in Serper, Brave Search, or SerpAPI.
+    engine: "serper"  # TODO: update when provider is chosen
+    rate_limit_per_second: 0.2
+    max_results: 20

@@ -1,0 +1,36 @@
+{
+  "_comment": "APPROXIMATE placeholder polygon for SEQ / Bundaberg-Goondiwindi ROI. Review and replace with a precise polygon before running production scans. Coordinates are WGS84 (lon, lat).",
+  "type": "Feature",
+  "properties": {
+    "name": "SEQ_Bundaberg_Goondiwindi_ROI",
+    "note": "Coarse convex-hull approximation — NOT suitable for precise filtering"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [151.85, -24.85],
+        [152.70, -24.85],
+        [152.70, -25.30],
+        [153.20, -25.80],
+        [153.50, -26.50],
+        [153.60, -27.50],
+        [153.40, -28.20],
+        [152.90, -28.80],
+        [152.30, -28.90],
+        [151.90, -29.10],
+        [151.40, -29.50],
+        [150.80, -29.40],
+        [150.30, -29.00],
+        [149.80, -28.60],
+        [149.50, -28.50],
+        [150.00, -27.50],
+        [150.30, -26.80],
+        [150.50, -26.00],
+        [150.80, -25.20],
+        [151.20, -24.90],
+        [151.85, -24.85]
+      ]
+    ]
+  }
+}

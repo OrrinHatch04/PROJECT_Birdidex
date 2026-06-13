@@ -1,0 +1,123 @@
+[project]
+name = "birdidex"
+version = "0.1.0"
+description = "Bird Pokedex cyberdeck — SEQ offline bird scanner and classifier"
+requires-python = ">=3.11,<3.12"
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "typer>=0.12",
+    "rich>=13",
+    "httpx>=0.27",
+    "tenacity>=8",
+    "orjson>=3",
+    "python-dotenv>=1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.4",
+    "pyright>=1.1",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "hypothesis>=6",
+    "pre-commit>=3",
+]
+scanner = [
+    "polars>=1",
+    "pandas>=2",
+    "pyarrow>=16",
+    "duckdb>=1",
+    "geopandas>=1",
+    "shapely>=2",
+    "pyproj>=3",
+    "rapidfuzz>=3",
+    "beautifulsoup4>=4",
+    "trafilatura>=1",
+    "pyyaml>=6",
+]
+vision = [
+    "opencv-python>=4",
+    "pillow>=10",
+    "imagehash>=4",
+    "albumentations>=1",
+    "scikit-image>=0.22",
+    # fiftyone has complex native deps — install manually if needed
+]
+training = [
+    # torch/torchvision: install via conda if pip wheels fail on this platform
+    "torch>=2",
+    "torchvision>=0.18",
+    "timm>=1",
+    "scikit-learn>=1",
+    "matplotlib>=3",
+    "mlflow>=2",
+    "tensorboard>=2",
+]
+inference = [
+    "onnx>=1.16",
+    "onnxruntime>=1.18",
+    "numpy>=1.26",
+    "opencv-python>=4",
+    "pillow>=10",
+    "psutil>=6",
+]
+ui = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "jinja2>=3",
+    "python-multipart>=0.0.9",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+    "packages/bird_core",
+    "packages/bird_geo",
+    "packages/bird_data",
+    "packages/bird_ml",
+    "packages/bird_device",
+    "apps/scanner",
+    "apps/training",
+    "apps/inference",
+    "apps/cyberdeck_ui",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ANN", "B", "SIM"]
+ignore = ["ANN101", "ANN102"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
+"scripts/**" = ["ANN", "T201"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "bird-roi-scan/",
+    ".venv/",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.hatch.build.targets.wheel]
+packages = []
