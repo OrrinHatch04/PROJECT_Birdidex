@@ -14,7 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "packages/bird_core/src"))
-sys.path.insert(0, str(REPO_ROOT / "apps/scanner/src"))
+sys.path.insert(0, str(REPO_ROOT / "apps/bird_roi_scan/src"))
 
 
 def main() -> None:

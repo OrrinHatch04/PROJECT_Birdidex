@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bird_scanner.providers.base import OccurrenceProviderProtocol
+from bird_roi_scan.providers.base import OccurrenceProviderProtocol
 
 
 def run_scan(

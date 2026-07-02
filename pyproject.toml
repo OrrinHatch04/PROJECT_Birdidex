@@ -81,7 +81,7 @@ members = [
     "packages/bird_data",
     "packages/bird_ml",
     "packages/bird_device",
-    "apps/scanner",
+    "apps/bird_roi_scan",
     "apps/training",
     "apps/inference",
     "apps/cyberdeck_ui",
@@ -111,7 +111,7 @@ reportMissingTypeStubs = false
 exclude = [
     "**/node_modules",
     "**/__pycache__",
-    "bird-roi-scan/",
+    "audit_backups/",
     ".venv/",
 ]
 

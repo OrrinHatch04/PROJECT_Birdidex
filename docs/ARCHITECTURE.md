@@ -14,11 +14,52 @@ The Bird Pokedex is an offline cyberdeck that identifies birds in South East Que
                                         [ ROI Scanner ]
 ```
 
+Photo input → bird detection → species classification → local species profile/info output.
+
+---
+
+## Workspace Layout
+
+BIRDIDEX is a single **uv workspace** (a monorepo), structured in the spirit of a robotics
+workspace such as `catkin_ws`: the **repo root owns all shared resources**, and each **app**
+is a thin package that owns only its own entrypoints and orchestration.
+
+```
+BIRDIDEX/                 # workspace root — owns shared resources
+├── apps/                 # one folder per deployable app (thin entrypoints + CLI)
+│   ├── bird_roi_scan/    #   ROI occurrence/keyword scanner   (pkg: bird_roi_scan)
+│   ├── training/         #   detector/classifier training     (pkg: bird_training)
+│   ├── inference/        #   offline edge inference           (pkg: bird_inference)
+│   ├── cyberdeck_ui/     #   kiosk/Pokédex UI                 (pkg: bird_ui)
+│   └── tools/            #   misc developer utilities
+├── packages/             # shared libraries (no app imports allowed)
+│   ├── bird_core/  bird_geo/  bird_data/  bird_ml/  bird_device/
+├── configs/  data/  models/  notebooks/  scripts/  tests/  docs/   # shared, root-owned
+```
+
+**Rules**
+
+- Apps depend on shared packages; **shared packages never import app packages**.
+- Apps never own their own `configs/`, `data/`, `models/`, `tests/`, or `notebooks/` —
+  those live once, at the root, and are shared.
+- All code resolves shared locations through `bird_core.paths` (`get_repo_root()`,
+  `get_configs_dir()`, `get_data_dir()`, `get_models_dir()`, `get_reports_dir()`,
+  `get_app_dir(name)`) rather than hardcoding paths or computing them per-app.
+
+**Allowed import edges**
+
+| App package | May import |
+|-------------|-----------|
+| `bird_roi_scan` | `bird_core`, `bird_geo`, `bird_data` |
+| `bird_training` | `bird_core`, `bird_data`, `bird_ml` |
+| `bird_inference` | `bird_core`, `bird_data`, `bird_ml`, `bird_device` |
+| `bird_ui` | `bird_core`, `bird_data` (and `bird_inference` later) |
+
 ---
 
 ## Components
 
-### 1. ROI Scanner (`apps/scanner/`)
+### 1. ROI Scanner (`apps/bird_roi_scan/`)
 
 **Purpose:** Determine which bird species are present in the SEQ ROI.
 
@@ -96,6 +137,10 @@ Minimal FastAPI server. Routes:
 - `GET /` — species display page (Jinja2 template)
 
 TODO: Add WebSocket for real-time inference-to-UI push, photo thumbnails, and species facts (type, climate zone, habitat).
+
+This skeleton is deliberately minimal. The cyberdeck UI can later be restyled into a custom
+**Pokédex-like interface** (Pokémon-device chrome, scanline display, species "entry" cards) —
+this restructure only creates the server skeleton, not that presentation layer.
 
 ---
 

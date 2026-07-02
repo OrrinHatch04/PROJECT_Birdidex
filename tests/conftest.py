@@ -14,7 +14,7 @@ _src_dirs = [
     REPO_ROOT / "packages/bird_data/src",
     REPO_ROOT / "packages/bird_ml/src",
     REPO_ROOT / "packages/bird_device/src",
-    REPO_ROOT / "apps/scanner/src",
+    REPO_ROOT / "apps/bird_roi_scan/src",
     REPO_ROOT / "apps/training/src",
     REPO_ROOT / "apps/inference/src",
     REPO_ROOT / "apps/cyberdeck_ui/src",

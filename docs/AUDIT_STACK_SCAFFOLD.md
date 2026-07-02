@@ -1,5 +1,11 @@
 # Audit, Stack, and Scaffold Report
 
+> **Historical (superseded).** This report describes the initial scaffold. The repo was later
+> reorganised (2026-06-13): the scanner app moved from `apps/scanner/` (package `bird_scanner`)
+> to `apps/bird_roi_scan/` (package `bird_roi_scan`), and the nested `bird-roi-scan/` project was
+> removed. References to `apps/scanner/` below are kept as-written for the record — see
+> [RESTRUCTURE_AUDIT.md](RESTRUCTURE_AUDIT.md) for the current layout.
+
 **Date:** 2026-06-13  
 **Task:** Initial scaffold of Bird Pokedex monorepo  
 **Status:** Scaffold complete. Python 3.11 not yet installed. uv not yet installed.

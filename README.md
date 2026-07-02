@@ -23,10 +23,11 @@ A cyberdeck project: camera + ONNX models + Raspberry Pi, no internet required i
 ```
 birdidex/
 ├── apps/
-│   ├── scanner/          # CLI + provider stubs (ALA, GBIF, eBird, iNat, web)
+│   ├── bird_roi_scan/    # CLI + provider stubs (ALA, GBIF, eBird, iNat, web)
 │   ├── training/         # Detector + classifier training pipeline
 │   ├── inference/        # Edge inference: camera → detect → classify → lookup
-│   └── cyberdeck_ui/     # FastAPI UI for the cyberdeck screen
+│   ├── cyberdeck_ui/     # FastAPI UI for the cyberdeck screen
+│   └── tools/            # Misc developer utilities
 │
 ├── packages/
 │   ├── bird_core/        # Shared IDs, enums, settings, logging
@@ -46,10 +47,8 @@ birdidex/
 │   ├── setup/            # verify_stack.py — smoke-test the environment
 │   └── dataset/          # 00–05 pipeline scripts (stubs)
 │
-├── tests/unit/           # 71 passing tests (imports, config, ROI, providers)
-├── docs/                 # Architecture, environment, audit report
-│
-└── bird-roi-scan/        # Legacy prototype — preserved, not deleted
+├── tests/                # 81 passing tests (imports, config, ROI, providers)
+└── docs/                 # Architecture, environment, restructure audit
 ```
 
 ---
@@ -123,12 +122,16 @@ The region of interest covers Bundaberg → Sunshine Coast → Brisbane → Toow
 
 - [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) — full setup guide, conda fallback, pre-commit
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, data flow, design decisions
-- [docs/AUDIT_STACK_SCAFFOLD.md](docs/AUDIT_STACK_SCAFFOLD.md) — what was found, created, and what still needs review
+- [docs/RESTRUCTURE_AUDIT.md](docs/RESTRUCTURE_AUDIT.md) — 2026-06-13 monorepo restructure: what moved, merged, backed up
+- [docs/AUDIT_STACK_SCAFFOLD.md](docs/AUDIT_STACK_SCAFFOLD.md) — earlier scaffold report (historical)
 
 ---
 
-## Legacy prototype
+## History
 
-`bird-roi-scan/` is an earlier prototype with working Pydantic models and web_search query templates. It is preserved and not integrated — the new `apps/scanner/` incorporates its best ideas with a typed, Protocol-based structure.
-
-**Known bug in `bird-roi-scan/`:** all `__init__.py` files have a leading space in their filename (` __init__.py`). This prevents Python from treating them as packages. Rename them before using that code.
+The earlier root-level `bird-roi-scan/` prototype (working Pydantic models, web_search query
+templates, and a lot of broken empty stubs) was folded into `apps/bird_roi_scan/` and the shared
+packages during the **2026-06-13 restructure**, then removed from the tree. Its original source —
+including the broken space-prefixed ` __init__.py` files — is archived under
+`audit_backups/restructure_<timestamp>/`. Full details in
+[docs/RESTRUCTURE_AUDIT.md](docs/RESTRUCTURE_AUDIT.md).

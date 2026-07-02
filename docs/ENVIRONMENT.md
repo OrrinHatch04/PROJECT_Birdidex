@@ -60,6 +60,33 @@ uv sync --group dev --group inference --group ui
 
 ---
 
+## Makefile Commands
+
+All common workflows are wrapped in the root `Makefile`. Each target prefers `uv` and
+falls back to a plain interpreter where possible.
+
+| Target | What it does |
+|--------|--------------|
+| `make setup` | Pin Python 3.11 and sync the `dev` group |
+| `make sync-dev` | Sync `dev` group |
+| `make sync-scanner` | Sync `dev` + `scanner` groups |
+| `make sync-training` | Sync `dev` + `training` groups |
+| `make sync-inference` | Sync `dev` + `inference` groups |
+| `make sync-ui` | Sync `dev` + `ui` groups |
+| `make lint` | `ruff check .` |
+| `make format` | `ruff format .` |
+| `make typecheck` | `pyright` |
+| `make test` | `pytest` |
+| `make verify-stack` | Run `scripts/setup/verify_stack.py` (offline smoke test) |
+| `make run-scanner-help` | Print the `bird_roi_scan` CLI help (no network) |
+| `make run-ui-dev` | Start the cyberdeck UI dev server (uvicorn, localhost) |
+| `make clean-caches` | Remove `__pycache__` and tool caches |
+| `make audit-tree` | Print the top-level layout and check for stray nested projects |
+
+No Makefile target downloads datasets, calls external APIs, or trains models.
+
+---
+
 ## Smoke Tests
 
 ```bash
@@ -67,7 +94,7 @@ uv sync --group dev --group inference --group ui
 python scripts/setup/verify_stack.py
 
 # Full unit tests
-python -m pytest tests/unit/ -v
+python -m pytest tests/ -v
 
 # Or via Makefile
 make verify-stack

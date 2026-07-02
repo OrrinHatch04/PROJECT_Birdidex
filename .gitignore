@@ -57,3 +57,15 @@ uv.lock
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+venv/
+*.pyc
+.pio/
+node_modules/
+*.gcode
+.DS_Store
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.log
+.cache/
