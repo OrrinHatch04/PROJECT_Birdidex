@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from bird_roi_scan.providers.base import KeywordProviderProtocol, OccurrenceProviderProtocol
 
 
@@ -54,8 +53,8 @@ def test_web_search_provider_has_name() -> None:
 
 
 def test_fetch_occurrences_raises_not_implemented() -> None:
-    from bird_data.species import SpeciesRecord
     from bird_core.ids import SpeciesId
+    from bird_data.species import SpeciesRecord
     from bird_roi_scan.providers.ala import ALAProvider
 
     species = SpeciesRecord(
@@ -69,8 +68,8 @@ def test_fetch_occurrences_raises_not_implemented() -> None:
 
 
 def test_web_search_build_queries() -> None:
-    from bird_data.species import SpeciesRecord
     from bird_core.ids import SpeciesId
+    from bird_data.species import SpeciesRecord
     from bird_roi_scan.providers.web_search import WebSearchProvider
 
     species = SpeciesRecord(

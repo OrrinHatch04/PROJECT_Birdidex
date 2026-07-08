@@ -1,5 +1,5 @@
 # ROI configuration for the SEQ / Bundaberg-to-Goondiwindi region.
-# The GeoJSON polygon below is APPROXIMATE — review before running production scans.
+# The GeoJSON polygon below is APPROXIMATE — review before using configured providers.
 
 name: "SEQ_Bundaberg_Goondiwindi_ROI"
 

@@ -3,7 +3,7 @@
 # TODO: Calibrate weights from known species lists after running the scanner.
 
 weights:
-  occurrence_count: 1.0      # Raw number of occurrence records inside ROI
+  occurrence_count: 1.0      # Provider occurrence record count inside ROI
   occurrence_sources:
     ala: 1.5                 # ALA has high coverage for Australia
     gbif: 1.0

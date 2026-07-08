@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
-
 from bird_core.ids import SpeciesId
 from bird_core.schemas import SpeciesStatus
+from pydantic import BaseModel, Field
 
 
 class SpeciesRecord(BaseModel):

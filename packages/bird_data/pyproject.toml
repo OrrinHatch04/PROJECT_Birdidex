@@ -7,6 +7,9 @@ dependencies = [
     "bird-core",
 ]
 
+[tool.uv.sources]
+bird-core = { workspace = true }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

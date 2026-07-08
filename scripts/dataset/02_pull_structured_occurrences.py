@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""02_pull_structured_occurrences.py — Pull occurrence records from ALA/GBIF/eBird/iNat.
+"""02_pull_structured_occurrences.py - Retrieve occurrence records from ALA/GBIF/eBird/iNat.
 
 TODO: Load species seed from data/seeds/.
-TODO: For each species, call enabled providers from configs/scanner/providers.yaml.
-TODO: Write raw occurrence records to data/raw/ as JSONL files.
+TODO: For each species, request records from explicitly enabled providers.
+TODO: Write provider occurrence records to data/raw/ as JSONL files.
 TODO: Respect provider rate limits using tenacity retry + sleep.
 """
 
@@ -19,7 +19,7 @@ sys.path.insert(0, str(REPO_ROOT / "apps/bird_roi_scan/src"))
 
 def main() -> None:
     print("02_pull_structured_occurrences: not yet implemented")
-    print("TODO: Wire up ALAProvider, GBIFProvider, EBirdProvider, INaturalistProvider.")
+    print("TODO: Wire up explicitly configured ALA, GBIF, eBird, and iNaturalist providers.")
 
 
 if __name__ == "__main__":

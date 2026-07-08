@@ -21,7 +21,9 @@ def load_roi_shape(path: Path) -> Any:
     try:
         from shapely.geometry import shape
     except ImportError as exc:
-        raise ImportError("shapely is required for load_roi_shape — install the 'scanner' group") from exc
+        raise ImportError(
+            "shapely is required for load_roi_shape — install the 'scanner' group"
+        ) from exc
 
     data = load_roi_geojson(path)
     # Support FeatureCollection, Feature, or bare geometry

@@ -22,7 +22,6 @@ def normalize_image(image: Any, mean: tuple[float, float, float] = (0.485, 0.456
 
 def center_crop(image: Any, size: int = 224) -> Any:
     """Center-crop a numpy HWC image to size×size."""
-    import numpy as np
     h, w = image.shape[:2]
     top = (h - size) // 2
     left = (w - size) // 2

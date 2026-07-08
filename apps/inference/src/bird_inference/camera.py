@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from bird_device.camera_base import CameraProtocol
-
 
 class OpenCVCamera:
     """Wraps cv2.VideoCapture as a CameraProtocol.
@@ -27,7 +25,9 @@ class OpenCVCamera:
                 import cv2
                 self._cap = cv2.VideoCapture(self._device_index)
             except ImportError as exc:
-                raise ImportError("opencv-python required — install the 'inference' group") from exc
+                raise ImportError(
+                    "opencv-python-headless required — install the 'inference' group"
+                ) from exc
 
     def capture_frame(self) -> Any:
         self._ensure_open()

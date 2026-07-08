@@ -1,1 +1,1 @@
-"""Bird scanner app: orchestrates occurrence + keyword evidence collection."""
+"""Bird scanner app: orchestrates occurrence and keyword evidence retrieval."""

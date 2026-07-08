@@ -1,16 +1,17 @@
 """Web keyword search provider stub.
 
 This provider supplies WEAK supplementary evidence only.
-It must NOT scrape Google directly — plug in a legitimate search API key
-(e.g. Serper, Brave Search, or SerpAPI) before calling fetch_keyword_evidence().
+Use documented search provider APIs only; do not scrape search result pages directly.
+Configure local runtime access for a provider such as Serper, Brave Search, or SerpAPI before
+calling fetch_keyword_evidence().
 
 QUERY_TEMPLATES and ROI_TERMS are preserved from the existing bird-roi-scan/ prototype.
 """
 
 from __future__ import annotations
 
-from bird_data.species import SpeciesRecord
 from bird_core.config import get_settings
+from bird_data.species import SpeciesRecord
 
 QUERY_TEMPLATES: list[str] = [
     '"{common_name}" "{place}" bird',
@@ -47,15 +48,15 @@ class WebSearchProvider:
         roi_places: list[str],
         max_results: int = 20,
     ) -> list[dict[str, object]]:
-        """TODO: Call a configured search API (Serper / Brave / SerpAPI).
+        """TODO: Request results from a configured documented search provider API.
 
-        Do NOT call this method without SEARCH_API_KEY configured.
-        Web evidence is weak — weight it conservatively in scoring.
+        Requires local SEARCH_API_KEY runtime config.
+        Web evidence is weak - weight it conservatively in scoring.
         """
         settings = get_settings()
         if not settings.search_api_key:
             raise RuntimeError(
-                "SEARCH_API_KEY not set — configure a legitimate search API in .env"
+                "SEARCH_API_KEY not set - configure a documented search provider in local .env"
             )
         raise NotImplementedError("WebSearchProvider.fetch_keyword_evidence not yet implemented")
 

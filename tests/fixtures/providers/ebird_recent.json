@@ -1,0 +1,24 @@
+[
+  {
+    "speciesCode": "laukoo1",
+    "comName": "Laughing Kookaburra",
+    "sciName": "Dacelo novaeguineae",
+    "obsDt": "2025-06-30 07:45",
+    "lat": -27.47,
+    "lng": 153.01,
+    "subId": "S200000001",
+    "howMany": 2,
+    "inside_roi": true
+  },
+  {
+    "speciesCode": "laukoo1",
+    "comName": "Laughing Kookaburra",
+    "sciName": "Dacelo novaeguineae",
+    "obsDt": "2025-07-02 16:10",
+    "lat": -27.52,
+    "lng": 152.97,
+    "subId": "S200000002",
+    "howMany": 1,
+    "inside_roi": true
+  }
+]

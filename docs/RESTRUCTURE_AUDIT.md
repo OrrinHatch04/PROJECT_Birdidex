@@ -120,7 +120,7 @@ Repointed: `audit` now prints this file. Existing targets retained: `setup`, `sy
 
 `audit-tree` prints the top-level layout and **fails** if a stray `bird-roi-scan/` reappears or
 if any app grows its own `configs/`, `data/`, `tests/`, `notebooks/`, or `models/` dir.
-No target downloads data, calls APIs, or trains.
+No target retrieves data/media, makes provider requests, or trains.
 
 ---
 

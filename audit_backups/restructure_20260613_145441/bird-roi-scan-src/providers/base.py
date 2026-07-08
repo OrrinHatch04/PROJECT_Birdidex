@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
-from bird_roi_scan.models.species import Species
-from bird_roi_scan.models.occurrence import Occurrence
+
 from bird_roi_scan.models.evidence import EvidenceRecord
+from bird_roi_scan.models.occurrence import Occurrence
+from bird_roi_scan.models.species import Species
+
 
 class Provider(ABC):
     name: str

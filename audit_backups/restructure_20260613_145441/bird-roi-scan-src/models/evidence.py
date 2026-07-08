@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class EvidenceRecord(BaseModel):
     species:        str
     source:         str

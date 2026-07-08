@@ -66,16 +66,16 @@ BIRDIDEX/                 # workspace root — owns shared resources
 **Primary evidence (structured occurrence APIs):**
 - **ALA** — Atlas of Living Australia. Best coverage for Australian records. Free, no auth.
 - **GBIF** — Global Biodiversity Information Facility. International aggregate. Free, no auth.
-- **eBird** — Cornell Lab. High quality checklists. Requires API key. Recent data only (30 days).
+- **eBird** — Cornell Lab. High quality checklists. Requires local `EBIRD_API_KEY` runtime config. Recent data only (30 days).
 - **iNaturalist** — Community observations. Research-grade filter. Free, no auth.
 
 **Why structured APIs are primary:** These APIs provide georeferenced, timestamped, independently verified records with taxonomy IDs. The data is structured and directly filterable by the ROI polygon.
 
 **Secondary/weak evidence (web keyword scan):**
-- **web_search provider** — Runs keyword queries against a legitimate search API (Serper/Brave/SerpAPI). Returns URLs and snippets mentioning the species + ROI place names.
+- **web_search provider** — Runs keyword queries against a documented search provider API (Serper/Brave/SerpAPI). Returns URLs and snippets mentioning the species + ROI place names.
 - Why this is weak: Web content is noisy, unverified, hard to date, and subject to SEO manipulation. It is useful for discovering species that appear in field guides or birding blogs but have few formal occurrence records in the APIs (e.g., rare visitors, vagrant records).
 - Weight conservatively in `configs/scanner/scoring.yaml`.
-- **Never raw-scrape Google.** Use a legitimate API.
+- Do not scrape search result pages directly. Use documented provider APIs only.
 
 **Output:** A scored species list (`data/processed/species_scored.parquet`) with `accepted`, `review`, and `rejected` categories.
 
@@ -88,12 +88,14 @@ BIRDIDEX/                 # workspace root — owns shared resources
 Steps:
 1. `00_build_roi.py` — export ROI polygon as WKT
 2. `01_seed_species.py` — build species seed list from IOC/Clements taxonomy
-3. `02_pull_structured_occurrences.py` — pull occurrence records
-4. `03_run_keyword_scan.py` — run web keyword scan (optional, requires API key)
+3. `02_pull_structured_occurrences.py` — retrieve structured biodiversity occurrence records when explicitly run
+4. `03_run_keyword_scan.py` — run web keyword scan (optional, requires local search-provider runtime config)
 5. `04_score_species.py` — apply scoring weights
 6. `05_export_review_tables.py` — export human-readable review CSVs
 
-Image collection (NOT YET IMPLEMENTED): After species are accepted, pull labelled images from iNaturalist (CC-licensed) and any other open sources, write to `data/manifests/`.
+Licensed media retrieval (NOT YET IMPLEMENTED): After species are accepted, retrieve
+open-licence labelled media when explicitly requested, preserve licence/attribution metadata, and
+write manifests to `data/manifests/`.
 
 ---
 
@@ -124,7 +126,7 @@ Camera.capture_frame()
   → notify UI
 ```
 
-All inference runs offline via ONNX Runtime. No network calls at inference time.
+All inference runs offline via ONNX Runtime. No provider requests at inference time.
 
 ---
 
@@ -173,7 +175,7 @@ data/raw/ + data/interim/
     ↓ 04_score_species.py
 data/processed/species_scored.parquet
 
-[image collection — not yet implemented]
+[licensed media retrieval - not yet implemented]
 data/manifests/train.jsonl + val.jsonl + test.jsonl
 
 data/manifests/
@@ -184,7 +186,7 @@ models/checkpoints/ → models/exports/detector.onnx
 
 models/exports/
     ↓ apps/inference/ (on cyberdeck)
-[live camera detections]
+[camera detections]
     ↓ apps/cyberdeck_ui/
 [display on screen]
 ```
@@ -193,9 +195,9 @@ models/exports/
 
 ## Key Design Decisions
 
-1. **uv over conda as default** — uv is significantly faster and produces reproducible lockfiles. conda is documented as a fallback for native dep problems (GDAL, ARM torch).
+1. **uv-only Python environment** — uv owns Python 3.11, dependency groups, the `.venv`, and the reproducible lockfile.
 2. **ONNX for edge deployment** — avoids PyTorch runtime on the cyberdeck. onnxruntime is available for ARM.
-3. **Structured occurrence APIs as primary evidence** — avoids legal/ToS issues with web scraping. ALA/GBIF/iNat are designed for this use case.
-4. **Web keyword scan as weak supplementary evidence** — kept behind a disabled flag and requires a legitimate search API key.
+3. **Structured occurrence APIs as primary evidence** — keeps retrieval inside documented biodiversity provider APIs. ALA/GBIF/iNat are designed for this use case.
+4. **Web keyword scan as weak supplementary evidence** — kept behind a disabled flag and requires configured documented-search provider access.
 5. **Protocol interfaces** — `OccurrenceProviderProtocol` and `KeywordProviderProtocol` allow providers to be swapped, mocked in tests, or disabled without changing the pipeline.
 6. **src-layout** — prevents accidental imports of uninstalled package directories.

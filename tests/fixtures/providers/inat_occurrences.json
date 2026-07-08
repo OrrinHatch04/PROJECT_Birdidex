@@ -1,0 +1,20 @@
+[
+  {
+    "id": 5000001,
+    "taxon": {"id": 20001, "name": "Dacelo novaeguineae", "preferred_common_name": "Laughing Kookaburra"},
+    "observed_on": "2024-03-15",
+    "quality_grade": "research",
+    "captive": false,
+    "location": "-27.48,152.98",
+    "inside_roi": true
+  },
+  {
+    "id": 5000002,
+    "taxon": {"id": 20001, "name": "Dacelo novaeguineae", "preferred_common_name": "Laughing Kookaburra"},
+    "observed_on": "2023-12-25",
+    "quality_grade": "research",
+    "captive": true,
+    "location": "-27.50,153.02",
+    "inside_roi": true
+  }
+]

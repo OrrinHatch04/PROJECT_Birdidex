@@ -42,6 +42,21 @@ def get_reports_dir() -> Path:
     return _REPO_ROOT / "data" / "reports"
 
 
+def get_manifests_dir() -> Path:
+    """Return the shared manifests directory (``data/manifests/``)."""
+    return _REPO_ROOT / "data" / "manifests"
+
+
+def get_splits_dir() -> Path:
+    """Return the shared dataset-splits directory (``data/splits/``)."""
+    return _REPO_ROOT / "data" / "splits"
+
+
+def get_db_dir() -> Path:
+    """Return the local database directory (``data/db/``, git-ignored)."""
+    return _REPO_ROOT / "data" / "db"
+
+
 def get_app_dir(app_name: str) -> Path:
     """Return the directory for an app under ``apps/`` (e.g. ``bird_roi_scan``).
 

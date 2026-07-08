@@ -1,0 +1,32 @@
+[
+  {
+    "key": 3000001,
+    "scientificName": "Dacelo novaeguineae",
+    "vernacularName": "Laughing Kookaburra",
+    "decimalLatitude": -27.49,
+    "decimalLongitude": 153.00,
+    "eventDate": "2024-01-20",
+    "basisOfRecord": "HUMAN_OBSERVATION",
+    "inside_roi": true
+  },
+  {
+    "key": 3000002,
+    "scientificName": "Dacelo novaeguineae",
+    "decimalLatitude": -27.70,
+    "decimalLongitude": 152.80,
+    "year": 2023,
+    "month": 9,
+    "day": 5,
+    "basisOfRecord": "HUMAN_OBSERVATION",
+    "inside_roi": true
+  },
+  {
+    "key": 3000003,
+    "scientificName": "Dacelo novaeguineae",
+    "decimalLatitude": -27.55,
+    "decimalLongitude": 152.99,
+    "eventDate": "2022-04-10",
+    "basisOfRecord": "LIVING_SPECIMEN",
+    "inside_roi": true
+  }
+]

@@ -57,7 +57,7 @@ No files were deleted. The entire `bird-roi-scan/` directory is preserved as-is.
 
 ### Root
 - `.python-version` — pins 3.11
-- `.env.example` — API key template
+- `.env.example` — local runtime configuration template
 - `.gitignore` — proper Python/data/model gitignore
 - `pyproject.toml` — main workspace manifest with dependency groups
 - `Makefile` — setup/sync/lint/typecheck/test/verify-stack/audit targets
@@ -138,8 +138,6 @@ Run against **Python 3.14.5** (system Python — 3.11 not yet installed):
 | `python3 --version` | Python 3.14.5 |
 | `python3.11 --version` | Not found |
 | `uv --version` | Not found |
-| `conda --version` | conda 26.1.1 (miniforge3) |
-| `conda search python=3.11 --channel conda-forge` | 3.11.15 available |
 | `python3 scripts/setup/verify_stack.py` | 1 critical fail (Python version), rest pass |
 | `python3 -m pytest tests/unit/` | 71 passed, 1 skipped |
 
@@ -149,11 +147,11 @@ Run against **Python 3.14.5** (system Python — 3.11 not yet installed):
 
 | Package | Risk | Notes |
 |---------|------|-------|
-| `torch` / `torchvision` | High — platform-sensitive | Use `conda install pytorch torchvision -c pytorch` on Raspberry Pi. Pip wheels may fail on ARM or Python 3.11+. |
+| `torch` / `torchvision` | High — platform-sensitive | Training workstations use the uv ROCm source mapping. Raspberry Pi deployment should not install the training group. |
 | `onnxruntime` | Medium | ARM builds exist but are separate packages (`onnxruntime-rpi` or compile from source). |
 | `fiftyone` | High — complex native deps | Excluded from `vision` group — install manually if needed. |
-| `opencv-python` | Medium | Headless variant (`opencv-python-headless`) is more portable for cyberdeck. Consider as alternative. |
-| `geopandas` | Low-medium | Depends on GDAL/GEOS. On Raspberry Pi, prefer conda install. |
+| `opencv-python-headless` | Medium | The headless wheel is the repo standard; GUI OpenCV is excluded. |
+| `geopandas` | Low-medium | Depends on GDAL/GEOS. Keep it in the scanner group rather than Pi deployment installs. |
 | `postgis` | Removed | Was in old `bird-roi-scan/pyproject.toml` — not needed for current scope. |
 | `dvc` | Removed | Was in old `bird-roi-scan/pyproject.toml` — add back if DVC is needed for data versioning. |
 | `streamlit` | Removed | Was in old project — replaced with FastAPI for cyberdeck UI. |
@@ -163,10 +161,10 @@ Run against **Python 3.14.5** (system Python — 3.11 not yet installed):
 ## 6. Items Requiring Human Review
 
 1. **Install uv**: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. **Install Python 3.11**: `conda create -n birdidex python=3.11 && conda activate birdidex` or `uv python install 3.11` after installing uv.
+2. **Install Python 3.11**: `uv python install 3.11`.
 3. **ROI polygon** (`configs/roi/roi.example.geojson`): The polygon is a coarse placeholder. Review the polygon against a Queensland map before running scans. Adjust to match the precise Bundaberg–Goondiwindi–SEQ boundary.
-4. **eBird API key**: Register at https://ebird.org/api/keygen and set `EBIRD_API_KEY` in `.env`.
-5. **Search API key**: Choose a legitimate search API (Serper, Brave, SerpAPI) for the `web_search` provider and set `SEARCH_API_KEY` in `.env`. Do not raw-scrape Google.
+4. **eBird provider config**: Register at https://ebird.org/api/keygen and set `EBIRD_API_KEY` only in local `.env` if you choose to use eBird.
+5. **Search provider config**: Choose a documented search provider API (Serper, Brave, SerpAPI) for the `web_search` provider and set `SEARCH_API_KEY` only in local `.env`. Do not scrape search result pages directly.
 6. **`bird-roi-scan/` `__init__.py` filenames**: All `__init__.py` files in `bird-roi-scan/src/` have a leading space character in their filename (` __init__.py`). This prevents Python from treating them as package init files. Rename them: `mv " __init__.py" __init__.py` in each affected directory. These are listed below:
    - `bird-roi-scan/src/bird_roi_scan/ __init__.py`
    - `bird-roi-scan/src/geo/ __init__.py`
@@ -180,7 +178,7 @@ Run against **Python 3.14.5** (system Python — 3.11 not yet installed):
    - `bird-roi-scan/src/taxonomy/ __init__.py`
    - `bird-roi-scan/src/utils/ __init__.py`
 7. **`bird-roi-scan/src/providers/ala.py`**: Contains `import cv2` — this is wrong. Needs real ALA API implementation.
-8. **torch/onnxruntime for Raspberry Pi**: When assembling the cyberdeck, use conda or compile onnxruntime from source. Document your specific ARM target in `configs/device/cyberdeck.yaml`.
+8. **torch/onnxruntime for Raspberry Pi**: Use `make sync-pi` for deployment dependencies. Document any target-specific runtime gap in `configs/device/cyberdeck.yaml`.
 9. **Species seed list**: `scripts/dataset/01_seed_species.py` needs a real species source. IOC World Bird List for Australia, Clements taxonomy, or an eBird Queensland checklist export are all viable starting points.
 
 ---

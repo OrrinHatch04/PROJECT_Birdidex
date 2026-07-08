@@ -16,7 +16,7 @@ providers:
 
   ebird:
     enabled: true
-    requires_api_key: true  # Set EBIRD_API_KEY in .env
+    requires_api_key: true  # Reads EBIRD_API_KEY only from local runtime config
     # Note: eBird free API only returns recent (30-day) observations.
     # Weight eBird evidence conservatively in scoring.
     rate_limit_per_second: 1
@@ -30,8 +30,8 @@ providers:
     max_records: 500
 
   web_search:
-    enabled: false  # TODO: set to true once SEARCH_API_KEY is configured
-    # Do NOT use Google directly. Plug in Serper, Brave Search, or SerpAPI.
+    enabled: false  # TODO: set to true only after local SEARCH_API_KEY is configured
+    # Use documented search provider APIs only; do not scrape search result pages directly.
     engine: "serper"  # TODO: update when provider is chosen
     rate_limit_per_second: 0.2
     max_results: 20

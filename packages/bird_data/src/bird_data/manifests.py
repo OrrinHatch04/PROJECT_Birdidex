@@ -5,10 +5,9 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel, Field
-
 from bird_core.ids import ImageId, SourceRecordId
 from bird_core.schemas import DatasetSplit, EvidenceSource
+from pydantic import BaseModel, Field
 
 
 class ImageManifestRecord(BaseModel):

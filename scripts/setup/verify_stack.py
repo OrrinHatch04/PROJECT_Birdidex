@@ -4,12 +4,12 @@
 Run with:  python scripts/setup/verify_stack.py
 Or:        make verify-stack
 
-Offline only — this script never makes network calls and never reads large data files.
+Offline only - this script never makes provider requests and never reads large data files.
 
 Checks:
   * Python is 3.11.x
   * repo root resolves and is printed
-  * shared root directories exist (configs/ data/ models/ notebooks/ scripts/ tests/ packages/ docs/)
+  * shared root directories exist (configs/ data/ models/ scripts/ tests/ packages/ docs/ ...)
   * app directories exist (apps/bird_roi_scan, apps/training, apps/inference, apps/cyberdeck_ui)
   * core third-party packages import
   * internal packages import (bird_core, bird_geo, bird_data, bird_ml, bird_device,

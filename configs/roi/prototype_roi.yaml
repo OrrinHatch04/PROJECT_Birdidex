@@ -1,0 +1,67 @@
+# Prototype ROI for the first BirdDex field build.
+#
+# Unlike configs/roi/roi.yaml (the full Bundaberg->Goondiwindi region), this ROI is
+# deliberately small: three high-value SEQ corridors chosen to prototype the whole
+# pipeline end-to-end (scan -> dataset -> train -> deploy -> field test) on a tractable
+# species count before scaling to the full region.
+#
+# The MultiPolygon in prototype_roi.geojson is a COARSE placeholder. Review and refine
+# each corridor against a Queensland map / QGIS before running configured providers.
+
+name: "BirdDex_Prototype_ROI"
+
+# Path to the GeoJSON polygon file (relative to repo root).
+# Encoded as a single MultiPolygon feature so bird_geo.load_roi_shape() loads all three
+# corridors at once (that loader reads features[0]).
+geojson_path: "configs/roi/prototype_roi.geojson"
+
+# Optional: path to pre-exported WKT (generate with scripts/dataset/00_build_roi.py).
+# wkt_path: "data/roi/prototype_roi.wkt"
+
+# Three prototype corridors. Order matches the MultiPolygon in the GeoJSON.
+sub_regions:
+  - name: "Lamington_Springbrook"
+    description: "Lamington NP / Springbrook plateau — Gold Coast hinterland rainforest, September field zone."
+    anchor_places:
+      - Lamington National Park
+      - Springbrook
+      - Binna Burra
+      - Scenic Rim
+      - Canungra
+
+  - name: "Bribie_Nudgee_Beerburrum"
+    description: "Bribie Island -> Nudgee -> Beerburrum corridor — Moreton Bay coast, wetlands, and Glass House hinterland."
+    anchor_places:
+      - Bribie Island
+      - Nudgee
+      - Beerburrum
+      - Glass House Mountains
+      - Caboolture
+
+  - name: "Noosa_RainbowBeach_Kgari"
+    description: "Noosa -> Rainbow Beach -> K'gari corridor — Cooloola coast, heath, and Great Sandy dune systems."
+    anchor_places:
+      - Noosa
+      - Cooloola
+      - Rainbow Beach
+      - K'gari
+      - Tin Can Bay
+
+# Flattened anchor list (used by keyword-evidence queries; mirrors bird_geo.places style).
+anchor_places:
+  - Lamington National Park
+  - Springbrook
+  - Binna Burra
+  - Scenic Rim
+  - Bribie Island
+  - Nudgee
+  - Beerburrum
+  - Glass House Mountains
+  - Noosa
+  - Cooloola
+  - Rainbow Beach
+  - K'gari
+
+# Buffer added to each corridor for boundary occurrence queries (km).
+# Smaller than the full-region ROI: these corridors are meant to be tight.
+buffer_km: 10

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bird Pokedex — Observations</title>
+    <style>
+        body { font-family: monospace; background: #111; color: #eee; margin: 2rem; }
+        h1 { color: #7ec8e3; }
+        a { color: #7ec8e3; }
+        nav a { margin-right: 1rem; }
+        table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
+        td, th { border: 1px solid #444; padding: 0.3rem 0.6rem; text-align: left; }
+        .placeholder { color: #888; }
+    </style>
+</head>
+<body>
+    <nav><a href="/">Latest</a><a href="/observations">Observations</a></nav>
+    <h1>Observation Log ({{ observations|length }})</h1>
+    {% if observations %}
+    <table>
+        <tr><th>#</th><th>Time</th><th>Species</th><th>Conf.</th><th>Model</th><th>Verdict</th></tr>
+        {% for o in observations %}
+        <tr>
+            <td>{{ o.id }}</td>
+            <td>{{ o.timestamp }}</td>
+            <td><a href="/species/{{ o.predicted_species_id }}">{{ o.predicted_species_id }}</a></td>
+            <td>{{ '%.3f'|format(o.confidence or 0) }}</td>
+            <td>{{ o.model_version or '' }}</td>
+            <td>{{ o.user_verdict or 'unreviewed' }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p class="placeholder">No observations logged yet.</p>
+    {% endif %}
+</body>
+</html>

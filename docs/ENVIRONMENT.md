@@ -1,125 +1,139 @@
 # Environment Setup
 
-## Python 3.11 Baseline
+BirdIDEX is a Python 3.11 uv workspace. The root `.python-version` pins `3.11`, and
+`pyproject.toml` requires `>=3.11,<3.12`.
 
-This project requires Python 3.11. Do not use 3.12+ for the main environment — torch/onnxruntime wheels are more stable on 3.11 at time of writing.
+Do not use Conda for this repo. The reproducible path is uv plus the root `uv.lock`.
 
-### Option A — uv (recommended)
+## Quick Start
 
 ```bash
-# Install uv (one-time)
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Pin Python 3.11 and create venv
 uv python install 3.11
-uv python pin 3.11
-uv sync --group dev
 
-# Verify
-python --version   # should print Python 3.11.x
-make verify-stack
+uv sync --all-groups
+make doctor
+make test
 ```
 
-### Option B — conda/micromamba (fallback for native deps)
+The project interpreter is:
 
-Use conda when pip wheels fail (common on ARM/Raspberry Pi, or for gdal/geos/torch):
+```text
+${workspaceFolder}/.venv/bin/python
+```
+
+From a shell, activate it only when you need an interactive environment:
 
 ```bash
-conda create -n birdidex python=3.11
-conda activate birdidex
-
-# Install native-dep packages via conda first
-conda install -c conda-forge geopandas shapely pyproj
-
-# Then install the rest via pip/uv inside the conda env
-pip install -e .
-pip install --group dev
+source .venv/bin/activate
 ```
 
----
+For commands, prefer `uv run ...` or the root `Makefile` targets so the workspace lockfile and
+editable internal packages are respected.
+
+## VSCodium
+
+Use the workspace interpreter:
+
+```text
+${workspaceFolder}/.venv/bin/python
+```
+
+The repo includes:
+
+- `.vscode/settings.json` for the interpreter, pytest, and import analysis paths
+- `.vscode/launch.json` for F5 debugging of current files and common repo entrypoints
 
 ## Dependency Groups
 
-Install only what you need:
+Install the smallest group set that matches the job.
 
 | Group | Command | Contains |
-|-------|---------|---------|
-| dev | `uv sync --group dev` | ruff, pyright, pytest, hypothesis, pre-commit |
-| scanner | `uv sync --group scanner` | polars, geopandas, shapely, duckdb, rapidfuzz, bs4 |
-| vision | `uv sync --group vision` | opencv, pillow, albumentations, scikit-image |
-| training | `uv sync --group training` | torch, torchvision, timm, mlflow, tensorboard |
-| inference | `uv sync --group inference` | onnx, onnxruntime, numpy, opencv, psutil |
+|-------|---------|----------|
+| base | `uv sync` | core config/CLI/schema deps, numpy, pandas, internal workspace packages |
+| dev | `uv sync --group dev` | pytest, ruff, pyright, mypy, pre-commit, notebooks |
+| scanner | `uv sync --group scanner` | polars, pyarrow, duckdb, geopandas, shapely, provider parsing |
+| vision | `uv sync --group vision` | opencv-python-headless, pillow, image tools, augmentation tools |
+| training | `uv sync --group training` | torch, torchvision, torchaudio, timm, lightning, mlflow |
+| tensorflow | `uv sync --group tensorflow` | tensorflow, keras |
+| inference | `uv sync --group inference` | onnx, onnxruntime, openvino, opencv-python-headless, psutil |
 | ui | `uv sync --group ui` | fastapi, uvicorn, jinja2 |
+| exporter | `uv sync --group exporter` | onnx, onnxruntime, openvino |
 
-Combine groups:
+Common combinations:
 
 ```bash
-uv sync --group dev --group scanner
-uv sync --group dev --group inference --group ui
+make sync-dev
+make sync-training
+make sync-pi
+make sync-all
 ```
 
----
+## PyTorch Backend
+
+Linux x86_64 training workstations use the PyTorch ROCm 6.4 wheel index for AMD GPUs:
+
+```toml
+[[tool.uv.index]]
+name = "pytorch-rocm64"
+url = "https://download.pytorch.org/whl/rocm6.4"
+explicit = true
+```
+
+The training group pins the matched triplet:
+
+- `torch==2.9.0`
+- `torchvision==0.24.0`
+- `torchaudio==2.9.0`
+
+On ROCm, PyTorch still reports GPU access through `torch.cuda` APIs. Check the actual backend with:
+
+```bash
+make doctor
+```
+
+Raspberry Pi deployment should use `make sync-pi`, not the full training group.
+
+## OpenCV Policy
+
+Use `opencv-python-headless` only. GUI OpenCV windows are not required, and the GUI wheel conflicts
+with the headless wheel. The uv configuration excludes `opencv-python` so transitive packages cannot
+pull it into the locked environment.
 
 ## Makefile Commands
 
-All common workflows are wrapped in the root `Makefile`. Each target prefers `uv` and
-falls back to a plain interpreter where possible.
-
 | Target | What it does |
 |--------|--------------|
-| `make setup` | Pin Python 3.11 and sync the `dev` group |
+| `make help` | Print available targets |
+| `make sync` | `uv sync` |
+| `make sync-all` | `uv sync --all-groups` |
 | `make sync-dev` | Sync `dev` group |
-| `make sync-scanner` | Sync `dev` + `scanner` groups |
-| `make sync-training` | Sync `dev` + `training` groups |
-| `make sync-inference` | Sync `dev` + `inference` groups |
-| `make sync-ui` | Sync `dev` + `ui` groups |
-| `make lint` | `ruff check .` |
-| `make format` | `ruff format .` |
-| `make typecheck` | `pyright` |
-| `make test` | `pytest` |
-| `make verify-stack` | Run `scripts/setup/verify_stack.py` (offline smoke test) |
-| `make run-scanner-help` | Print the `bird_roi_scan` CLI help (no network) |
-| `make run-ui-dev` | Start the cyberdeck UI dev server (uvicorn, localhost) |
-| `make clean-caches` | Remove `__pycache__` and tool caches |
-| `make audit-tree` | Print the top-level layout and check for stray nested projects |
+| `make sync-training` | Sync `dev` + `vision` + `training` groups |
+| `make sync-pi` | Sync `inference` + `ui` groups |
+| `make test` | `uv run pytest` |
+| `make lint` | `uv run ruff check .` |
+| `make format` | `uv run ruff format .` |
+| `make typecheck` | `uv run pyright` |
+| `make mypy` | Optional `uv run mypy packages apps tests` |
+| `make doctor` | Run `scripts/env/doctor.py` |
+| `make clean` | Remove Python and test caches only |
 
-No Makefile target downloads datasets, calls external APIs, or trains models.
-
----
+`make clean` does not delete `.venv`, `data/`, models, notebooks, or generated runtime artifacts.
 
 ## Smoke Tests
 
 ```bash
-# Quick: run verify_stack.py (no network, no GPU, no data)
-python scripts/setup/verify_stack.py
-
-# Full unit tests
-python -m pytest tests/ -v
-
-# Or via Makefile
-make verify-stack
+make doctor
 make test
 ```
 
----
+`make doctor` exits nonzero only for hard environment failures: wrong Python minor version or not
+running from the project `.venv` when invoked through Make. Missing optional ML packages are reported
+as diagnostics, not hard failures.
 
-## When to Use conda as Fallback
-
-Use conda instead of pip when:
-- Installing `torch`/`torchvision` on ARM (Raspberry Pi, Apple Silicon)
-- Installing `geopandas` (needs GDAL/GEOS native libs)
-- Installing `onnxruntime` on non-standard platforms
-- Any package that fails with a pip wheel error mentioning native compilation
-
-In all other cases, uv + pip wheels is preferred.
-
----
-
-## Pre-commit Hooks (optional)
+## Pre-commit Hooks
 
 ```bash
-pre-commit install
-pre-commit run --all-files
+uv run pre-commit install
+uv run pre-commit run --all-files
 ```
-
-Runs ruff and pyright before each commit.

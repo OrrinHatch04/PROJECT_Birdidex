@@ -6,7 +6,6 @@ TODO: Add integrity checks (duplicate image IDs, missing local paths).
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from bird_data.manifests import ImageManifestRecord

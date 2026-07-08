@@ -11,6 +11,10 @@ dependencies = [
     "python-multipart>=0.0.9",
 ]
 
+[tool.uv.sources]
+bird-core = { workspace = true }
+bird-data = { workspace = true }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

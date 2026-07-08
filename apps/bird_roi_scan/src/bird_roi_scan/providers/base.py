@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from bird_data.manifests import ImageManifestRecord
 from bird_data.species import SpeciesRecord
 
 
@@ -20,9 +19,9 @@ class OccurrenceProviderProtocol(Protocol):
         roi_wkt: str,
         max_records: int = 500,
     ) -> list[dict[str, object]]:
-        """Fetch raw occurrence dicts from the provider API.
+        """Fetch provider occurrence dictionaries from a documented provider API.
 
-        Returns a list of raw dicts — the pipeline normalises them downstream.
+        Returns provider dictionaries; the pipeline normalises them downstream.
         TODO: Return typed OccurrenceRecord objects once that model is finalised.
         """
         ...
@@ -40,7 +39,7 @@ class KeywordProviderProtocol(Protocol):
         roi_places: list[str],
         max_results: int = 20,
     ) -> list[dict[str, object]]:
-        """Fetch raw keyword evidence dicts.
+        """Fetch keyword evidence dictionaries from a documented provider API.
 
         TODO: Return typed EvidenceRecord objects once model is finalised.
         """

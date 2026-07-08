@@ -1,9 +1,9 @@
 """Shared enumerations used across all birdidex packages."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class EvidenceSource(str, Enum):
+class EvidenceSource(StrEnum):
     ala = "ala"
     gbif = "gbif"
     ebird = "ebird"
@@ -11,19 +11,19 @@ class EvidenceSource(str, Enum):
     web = "web"
 
 
-class SpeciesStatus(str, Enum):
+class SpeciesStatus(StrEnum):
     accepted = "accepted"
     review = "review"
     rejected = "rejected"
 
 
-class DatasetSplit(str, Enum):
+class DatasetSplit(StrEnum):
     train = "train"
     val = "val"
     test = "test"
     review = "review"
 
 
-class ModelBackend(str, Enum):
+class ModelBackend(StrEnum):
     pytorch = "pytorch"
     onnxruntime = "onnxruntime"

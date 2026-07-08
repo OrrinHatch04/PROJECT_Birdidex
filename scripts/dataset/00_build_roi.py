@@ -2,7 +2,7 @@
 """00_build_roi.py — Validate and export the ROI polygon.
 
 Reads configs/roi/roi.yaml, loads the GeoJSON, and writes:
-  - data/roi/roi.wkt       (WKT string for API queries)
+  - data/roi/roi.wkt       (WKT string for provider geometry queries)
 
 TODO: Add interactive visualisation once geopandas + folium are installed.
 TODO: Allow user to specify a custom GeoJSON path via --roi-path argument.
