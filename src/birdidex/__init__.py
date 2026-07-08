@@ -1,16 +1,5 @@
-"""Core shared types, config, and utilities for birdidex."""
+"""BIRDIDEX single-package API."""
 
-from bird_core.ids import ImageId, ModelClassId, ObservationId, SourceRecordId, SpeciesId
-from bird_core.schemas import DatasetSplit, EvidenceSource, ModelBackend, SpeciesStatus
+__all__ = ["__version__"]
 
-__all__ = [
-    "SpeciesId",
-    "ImageId",
-    "ObservationId",
-    "SourceRecordId",
-    "ModelClassId",
-    "EvidenceSource",
-    "SpeciesStatus",
-    "DatasetSplit",
-    "ModelBackend",
-]
+__version__ = "0.1.0"

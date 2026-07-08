@@ -1,37 +1,38 @@
-# Provider configuration for the bird scanner.
-# Set enabled: false to skip a provider in the pipeline.
+# Metadata provider configuration.
+# Commands do not make provider requests unless explicitly run with --live.
 
 providers:
+  inaturalist:
+    enabled: true
+    base_url: "https://api.inaturalist.org/v1"
+    rate_limit_per_second: 1
+    quality_grade: "research"
+    max_records: 25
+
   ala:
     enabled: true
-    base_url: "https://api.ala.org.au"
+    base_url: "https://biocache-ws.ala.org.au/ws"
     rate_limit_per_second: 1
-    max_records: 500
+    max_records: 25
 
   gbif:
     enabled: true
     base_url: "https://api.gbif.org/v1"
     rate_limit_per_second: 1
-    max_records: 500
+    max_records: 25
 
-  ebird:
+  wikimedia_commons:
     enabled: true
-    requires_api_key: true  # Reads EBIRD_API_KEY only from local runtime config
-    # Note: eBird free API only returns recent (30-day) observations.
-    # Weight eBird evidence conservatively in scoring.
+    base_url: "https://commons.wikimedia.org/w/api.php"
     rate_limit_per_second: 1
-    max_records: 200
+    max_records: 25
 
-  inaturalist:
+  openverse:
     enabled: true
-    base_url: "https://api.inaturalist.org/v2"
+    base_url: "https://api.openverse.engineering/v1/images/"
     rate_limit_per_second: 1
-    quality_grade: "research"
-    max_records: 500
+    max_records: 25
 
-  web_search:
-    enabled: false  # TODO: set to true only after local SEARCH_API_KEY is configured
-    # Use documented search provider APIs only; do not scrape search result pages directly.
-    engine: "serper"  # TODO: update when provider is chosen
-    rate_limit_per_second: 0.2
-    max_results: 20
+optional_runtime_config:
+  ebird_api_key: "BIRDIDEX_EBIRD_API_KEY"
+  search_api_key: "BIRDIDEX_SEARCH_API_KEY"

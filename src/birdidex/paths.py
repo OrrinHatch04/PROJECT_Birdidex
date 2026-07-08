@@ -1,83 +1,68 @@
-"""Repo-root-relative path helpers.
-
-All apps and packages must resolve shared resources through these helpers rather than
-hardcoding paths or computing them relative to an app directory. Paths are resolved
-relative to the repository root, never to a user-specific absolute location.
-
-Skeleton only: these helpers return paths; they do not create directories or validate
-contents. Add `mkdir`/validation behaviour later if needed.
-"""
+"""Repo-root-relative path helpers for the single BIRDIDEX package."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-# This file lives at packages/bird_core/src/bird_core/paths.py, so the repo root is
-# five parents up. Resolved once at import time and independent of the current CWD.
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def get_repo_root() -> Path:
-    """Return the absolute path to the repository root (the BIRDIDEX/ workspace)."""
+def repo_root() -> Path:
+    """Return the repository root."""
     return _REPO_ROOT
 
 
-def get_configs_dir() -> Path:
-    """Return the shared ``configs/`` directory at the repo root."""
+def configs_dir() -> Path:
     return _REPO_ROOT / "configs"
 
 
-def get_data_dir() -> Path:
-    """Return the shared ``data/`` directory at the repo root."""
+def data_dir() -> Path:
     return _REPO_ROOT / "data"
 
 
-def get_models_dir() -> Path:
-    """Return the shared ``models/`` directory at the repo root."""
+def models_dir() -> Path:
     return _REPO_ROOT / "models"
 
 
-def get_reports_dir() -> Path:
-    """Return the shared reports directory (``data/reports/``)."""
-    return _REPO_ROOT / "data" / "reports"
+def notebooks_dir() -> Path:
+    return _REPO_ROOT / "notebooks"
 
 
-def get_manifests_dir() -> Path:
-    """Return the shared manifests directory (``data/manifests/``)."""
-    return _REPO_ROOT / "data" / "manifests"
+def scripts_dir() -> Path:
+    return _REPO_ROOT / "scripts"
 
 
-def get_splits_dir() -> Path:
-    """Return the shared dataset-splits directory (``data/splits/``)."""
-    return _REPO_ROOT / "data" / "splits"
+def docs_dir() -> Path:
+    return _REPO_ROOT / "docs"
 
 
-def get_db_dir() -> Path:
-    """Return the local database directory (``data/db/``, git-ignored)."""
-    return _REPO_ROOT / "data" / "db"
+def images_dir() -> Path:
+    return data_dir() / "images"
 
 
-def get_app_dir(app_name: str) -> Path:
-    """Return the directory for an app under ``apps/`` (e.g. ``bird_roi_scan``).
-
-    The app name is not validated here — callers pass the directory name as it appears
-    under ``apps/``.
-    """
-    return _REPO_ROOT / "apps" / app_name
+def manifests_dir() -> Path:
+    return data_dir() / "manifests"
 
 
-# ── Back-compat short aliases (kept so existing imports keep working) ─────────────────
-def project_root() -> Path:
-    return get_repo_root()
+def reports_dir() -> Path:
+    return data_dir() / "reports"
 
 
-def configs_dir() -> Path:
-    return get_configs_dir()
+def db_dir() -> Path:
+    return data_dir() / "db"
 
 
-def data_dir() -> Path:
-    return get_data_dir()
+def default_class_index_path() -> Path:
+    """Return the canonical classifier class index path."""
+    return data_dir() / "processed" / "birddex" / "class_index.json"
 
 
-def models_dir() -> Path:
-    return get_models_dir()
+# Back-compatible names for scripts and docs that still prefer explicit getters.
+get_repo_root = repo_root
+get_configs_dir = configs_dir
+get_data_dir = data_dir
+get_models_dir = models_dir
+get_images_dir = images_dir
+get_manifests_dir = manifests_dir
+get_reports_dir = reports_dir
+get_db_dir = db_dir

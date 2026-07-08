@@ -1,46 +1,27 @@
 .PHONY: help setup sync sync-all sync-dev sync-scanner sync-training sync-inference sync-ui sync-pi \
-        lint format typecheck mypy test doctor verify-stack \
-        run-scanner-help run-ui-dev clean clean-caches audit-tree audit \
-        scan-candidates build-manifest build-splits demo-inference \
-        export-observations dry-run-pipeline
+        lint format typecheck mypy test doctor verify-stack run-scanner-help run-ui-dev \
+        clean clean-caches audit-tree scan-candidates images-scaffold images-report \
+        images-fetch-manifest images-split train-help infer-help ui-help
 
-# uv is the environment manager for this workspace.
-UV     := uv
+UV := uv
 PYTHON := python3.11
 PYFALL := python3
 
 help:
-	@echo "Bird Pokedex (BIRDIDEX) — available targets:"
-	@echo "  setup            Pin Python 3.11 and sync the dev dependency group"
-	@echo "  sync             uv sync"
-	@echo "  sync-all         uv sync --all-groups"
-	@echo "  sync-dev         Sync dev dependency group"
-	@echo "  sync-scanner     Sync dev + scanner dependency groups"
-	@echo "  sync-training    Sync dev + vision + training dependency groups"
-	@echo "  sync-inference   Sync dev + inference dependency groups"
-	@echo "  sync-ui          Sync dev + ui dependency groups"
-	@echo "  sync-pi          Sync inference + ui dependency groups for Pi deployment"
-	@echo "  lint             Run ruff check"
-	@echo "  format           Run ruff format"
-	@echo "  typecheck        Run pyright"
-	@echo "  mypy             Run optional mypy checks"
-	@echo "  test             Run pytest"
-	@echo "  doctor           Print environment/package/backend diagnostics"
-	@echo "  verify-stack     Run scripts/setup/verify_stack.py (offline smoke test)"
-	@echo "  run-scanner-help Show the bird_roi_scan CLI help (no provider requests)"
-	@echo "  run-ui-dev       Start the cyberdeck UI dev server (uvicorn, local only)"
-	@echo "  --- offline dry-run pipeline (no provider requests, no media retrieval) ---"
-	@echo "  scan-candidates   Score ROI species candidates -> manifests + report"
-	@echo "  build-manifest    Build licensed image manifest from the iNat fixture"
-	@echo "  build-splits      Generate train/val/test splits + validation report"
-	@echo "  demo-inference    Mock inference -> SQLite observation log (for the UI)"
-	@echo "  export-observations  Export the observation log to CSV + JSON"
-	@echo "  dry-run-pipeline  Run scan -> manifest -> splits -> demo-inference end to end"
-	@echo "  clean            Remove __pycache__ and tool caches"
-	@echo "  audit-tree       Print the top-level layout and check for stray nested projects"
-	@echo "  audit            Print docs/RESTRUCTURE_AUDIT.md"
+	@echo "BIRDIDEX targets:"
+	@echo "  setup                Pin Python 3.11 and sync dev dependencies"
+	@echo "  sync-all             uv sync --all-groups"
+	@echo "  test                 Run pytest"
+	@echo "  doctor               uv run birdidex doctor"
+	@echo "  verify-stack         Run local smoke checks"
+	@echo "  scan-candidates      Write offline candidate CSV from class_index.json"
+	@echo "  images-scaffold      Create data/images ImageFolder scaffold"
+	@echo "  images-fetch-manifest  Write metadata-first provider manifest"
+	@echo "  images-split         Create train/val/test symlinks from accepted local records"
+	@echo "  images-report        Regenerate image reports"
+	@echo "  run-ui-dev           Start local UI dev server"
+	@echo "  clean                Remove local tool caches"
 
-# ── Environment ───────────────────────────────────────────────────────────────
 setup:
 	$(UV) python pin 3.11
 	$(UV) sync --group dev
@@ -69,7 +50,6 @@ sync-ui:
 sync-pi:
 	$(UV) sync --group inference --group ui
 
-# ── Quality ───────────────────────────────────────────────────────────────────
 lint:
 	$(UV) run ruff check .
 
@@ -80,73 +60,63 @@ typecheck:
 	$(UV) run pyright
 
 mypy:
-	$(UV) run mypy packages apps tests
+	$(UV) run mypy src tests
 
 test:
 	$(UV) run pytest
 
 doctor:
-	BIRDIDEX_DOCTOR_REQUIRE_PROJECT_VENV=1 $(UV) run python scripts/env/doctor.py
+	$(UV) run birdidex doctor
 
 verify-stack:
 	$(UV) run python scripts/setup/verify_stack.py || $(PYTHON) scripts/setup/verify_stack.py || $(PYFALL) scripts/setup/verify_stack.py
 
-# ── App entrypoints (health/help only — never retrieve data/media, make provider requests, or train) ──
 run-scanner-help:
-	$(UV) run python -m bird_roi_scan.cli --help \
-	  || PYTHONPATH=apps/bird_roi_scan/src:packages/bird_core/src:packages/bird_geo/src:packages/bird_data/src $(PYFALL) -m bird_roi_scan.cli --help
+	$(UV) run birdidex scan-candidates --help
 
 run-ui-dev:
-	$(UV) run uvicorn bird_ui.server:app --reload --host 127.0.0.1 --port 8000
+	$(UV) run birdidex ui serve
 
-# ── Offline dry-run pipeline (no provider requests, no media retrieval) ─────────
 scan-candidates:
-	$(UV) run python scripts/dataset/04_score_species.py
+	$(UV) run birdidex scan-candidates
 
-build-manifest:
-	$(UV) run python scripts/dataset/06_build_image_manifest.py
+images-scaffold:
+	$(UV) run birdidex images scaffold
 
-build-splits:
-	$(UV) run python scripts/dataset/07_build_splits.py
+images-fetch-manifest:
+	$(UV) run birdidex images fetch-manifest
 
-demo-inference:
-	$(UV) run python scripts/inference/run_demo_inference.py
+images-split:
+	$(UV) run birdidex images split --train 0.75 --val 0.15 --test 0.10 --seed 42
 
-export-observations:
-	$(UV) run python -c "from pathlib import Path; from bird_data.observation_log import ObservationLog; \
-	l=ObservationLog(Path('data/db/observations.sqlite3')); \
-	l.export_csv(Path('data/reports/observations_export.csv')); \
-	l.export_json(Path('data/reports/observations_export.json')); l.close(); \
-	print('exported to data/reports/observations_export.{csv,json}')"
+images-report:
+	$(UV) run birdidex images report
 
-dry-run-pipeline: scan-candidates build-manifest build-splits demo-inference
-	@echo "Dry-run pipeline complete — see data/manifests, data/splits, data/reports, data/db."
+train-help:
+	$(UV) run birdidex train --help
 
-# ── Housekeeping ──────────────────────────────────────────────────────────────
+infer-help:
+	$(UV) run birdidex infer --help
+
+ui-help:
+	$(UV) run birdidex ui --help
+
 clean: clean-caches
 
 clean-caches:
-	find . -path ./.git -prune -o -name '__pycache__' -type d -print -exec rm -rf {} + 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv \) -prune -o -name '__pycache__' -type d -print -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .pytest_cache .ruff_cache .pyright .mypy_cache htmlcov .coverage coverage.xml
 	@echo "caches cleaned"
 
 audit-tree:
-	@echo "== Top-level workspace =="
+	@echo "== Top-level =="
 	@ls -1 -d */ 2>/dev/null
 	@echo ""
-	@echo "== apps/ =="
-	@ls -1 apps
-	@echo "== packages/ =="
-	@ls -1 packages
+	@echo "== Single package =="
+	@find src/birdidex -maxdepth 2 -type f | sort
 	@echo ""
-	@echo "== Stray-nested-project check =="
 	@bad=0; \
-	if [ -e bird-roi-scan ]; then echo "  [FAIL] stray bird-roi-scan/ present at root"; bad=1; fi; \
-	for d in apps/*/configs apps/*/data apps/*/tests apps/*/notebooks apps/*/models; do \
-	  if [ -e "$$d" ]; then echo "  [FAIL] app owns a shared dir: $$d"; bad=1; fi; \
-	done; \
-	if [ $$bad -eq 0 ]; then echo "  [OK] no duplicate nested workspace folders"; fi; \
+	if [ -e apps ]; then echo "  [FAIL] apps/ still exists"; bad=1; fi; \
+	if [ -e packages ]; then echo "  [FAIL] packages/ still exists"; bad=1; fi; \
+	if [ $$bad -eq 0 ]; then echo "  [OK] single-package layout"; fi; \
 	exit $$bad
-
-audit:
-	@cat docs/RESTRUCTURE_AUDIT.md

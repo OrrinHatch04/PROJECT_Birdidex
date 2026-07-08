@@ -11,7 +11,7 @@
 name: "BirdDex_Prototype_ROI"
 
 # Path to the GeoJSON polygon file (relative to repo root).
-# Encoded as a single MultiPolygon feature so bird_geo.load_roi_shape() loads all three
+# Encoded as a single MultiPolygon feature so birdidex.roi.load_roi_shape() loads all three
 # corridors at once (that loader reads features[0]).
 geojson_path: "configs/roi/prototype_roi.geojson"
 
@@ -47,7 +47,7 @@ sub_regions:
       - K'gari
       - Tin Can Bay
 
-# Flattened anchor list (used by keyword-evidence queries; mirrors bird_geo.places style).
+# Flattened anchor list for future provider metadata queries.
 anchor_places:
   - Lamington National Park
   - Springbrook

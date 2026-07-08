@@ -29,6 +29,7 @@ data/reports/*
 data/splits/*
 data/media/*
 data/db/*
+data/images/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
@@ -37,6 +38,7 @@ data/db/*
 !data/splits/.gitkeep
 !data/media/.gitkeep
 !data/db/.gitkeep
+!data/images/.gitkeep
 
 # Local databases (SQLite observation log)
 *.sqlite3
@@ -57,6 +59,8 @@ models/quantized/*
 *.onnx
 *.duckdb
 *.parquet
+*.log
+logs/
 
 # IDE
 .vscode/*

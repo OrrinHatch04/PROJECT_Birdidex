@@ -1,217 +1,133 @@
-# Bird Pokedex
+# BIRDIDEX
 
-Offline bird scanner and identifier for South East Queensland — Bundaberg to Goondiwindi.
+Local bird image-dataset and model scaffold for South East Queensland field use.
 
-A cyberdeck project: camera + ONNX models + Raspberry Pi, no internet required in the field.
-
-> **Status: Software MVP (offline dry-run).** An end-to-end *software* pipeline runs locally with
-> no provider tokens and no media retrieval: ROI species candidates → licensed image manifest →
-> dataset splits → training/inference skeletons → SQLite logging → cyberdeck UI.
-> **No model has been trained** — the classifier/detector are runnable skeletons and the inference
-> demo uses a deterministic mock. No provider requests, model training, or media retrieval happen by
-> default; those remain explicit, opt-in commands.
+Status: simplified Python package. The repo now has one installable package, one CLI, and one uv
+environment. It can scaffold an ImageFolder-style dataset from the existing `class_index.json`,
+write metadata-first image manifests, create deterministic local-file splits, and expose thin
+training/inference/UI skeleton commands. It does not train models, run inference, retrieve media, or
+make provider requests by default.
 
 Restrictive coding agents should read [docs/AGENT_README.md](docs/AGENT_README.md) before making
-changes. It records the local-only boundaries, provider rules, and safe first commands for this repo.
+changes.
 
----
+## Layout
 
-## What it does (eventually)
-
-1. **Scan** — retrieves biodiversity occurrence records from ALA, GBIF, eBird, and iNaturalist when explicitly configured to determine which species are present in the SEQ ROI
-2. **Dataset** — builds a licensed image manifest from open-licence media metadata and explicitly requested media retrieval
-3. **Train** — trains a detector + classifier on the species list
-4. **Deploy** — exports to ONNX and runs offline on the cyberdeck
-5. **Display** — FastAPI UI shows species name, photo, ID, facts, habitat
-
----
-
-## Repository layout
-
-```
+```text
 birdidex/
-├── apps/
-│   ├── bird_roi_scan/    # CLI + provider stubs (ALA, GBIF, eBird, iNat, documented search APIs)
-│   ├── training/         # Detector + classifier training pipeline
-│   ├── inference/        # Edge inference: camera → detect → classify → lookup
-│   ├── cyberdeck_ui/     # FastAPI UI for the cyberdeck screen
-│   └── tools/            # Misc developer utilities
-│
-├── packages/
-│   ├── bird_core/        # Shared IDs, enums, settings, logging
-│   ├── bird_geo/         # ROI loading, shapely geometry, SEQ place names
-│   ├── bird_data/        # SpeciesRecord, ImageManifestRecord, taxonomy
-│   ├── bird_ml/          # Label maps, metrics, calibration, transforms
-│   └── bird_device/      # Camera Protocol, battery, device telemetry
-│
+├── src/birdidex/
+│   ├── cli.py
+│   ├── paths.py
+│   ├── settings.py
+│   ├── taxonomy.py
+│   ├── roi.py
+│   ├── providers.py
+│   ├── images.py
+│   ├── splits.py
+│   ├── train.py
+│   ├── infer.py
+│   ├── db.py
+│   └── ui/
 ├── configs/
-│   ├── roi/              # ROI polygon (REVIEW roi.example.geojson before use)
-│   ├── scanner/          # Provider config, scoring weights, species filters
-│   ├── training/         # Classifier, detector, augmentation config
-│   ├── inference/        # Runtime config for cyberdeck
-│   └── device/           # Cyberdeck hardware config
-│
+├── data/
+├── models/
+├── notebooks/
 ├── scripts/
-│   ├── setup/            # verify_stack.py — smoke-test the environment
-│   ├── dataset/          # 00–07: ROI, seed, occurrences, scoring, manifest, splits
-│   └── inference/        # run_demo_inference.py — offline mock inference → SQLite log
-│
-├── os/                   # Custom OS / system image: image build, systemd, Wi-Fi AP, FTP (scaffold)
-├── firmware/             # MCU firmware + electronics: sensors, buttons, power, wire protocol (scaffold)
-├── tests/                # 148 passing offline tests, 2 skipped training-boundary tests
-└── docs/                 # Architecture, work categories, environment, restructure audit
+├── tests/
+├── docs/
+├── pyproject.toml
+├── Makefile
+└── README.md
 ```
 
----
-
-## Quick start
-
-### 1. Install uv (package manager)
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### 2. Install Python 3.11
+## Quick Start
 
 ```bash
 uv python install 3.11
+uv sync --all-groups
+uv run birdidex --help
+uv run birdidex doctor
 ```
 
-### 3. Set up and verify the environment
+Common checks:
 
 ```bash
-uv sync --all-groups
-make doctor
+uv run birdidex images scaffold
+uv run birdidex images report
+uv run pytest
 make test
 ```
 
-For smaller installs:
+## CLI
 
 ```bash
-make sync-dev       # development tools and tests
-make sync-training  # dev + vision + PyTorch ROCm training stack on Linux x86_64
-make sync-pi        # inference + UI stack for Raspberry Pi deployment
+uv run birdidex doctor
+uv run birdidex scan-candidates
+uv run birdidex images scaffold
+uv run birdidex images fetch-manifest
+uv run birdidex images split --train 0.75 --val 0.15 --test 0.10 --seed 42
+uv run birdidex images report
+uv run birdidex train --help
+uv run birdidex infer --help
+uv run birdidex ui --help
 ```
 
-### 4. VSCodium
+`images fetch-manifest` is metadata-only. Without `--live`, it makes no provider requests and writes
+empty manifest/report files. With `--live`, provider functions call documented APIs and store
+normalized metadata records only; media download is still not implemented.
 
-Use this interpreter:
+## Image Dataset
 
-`${workspaceFolder}/.venv/bin/python`
+The only class source of truth is:
 
-The repo includes `.vscode/settings.json` and `.vscode/launch.json` for that interpreter and
-F5 debug configurations.
-
-### 5. Configure local runtime settings
-
-```bash
-cp .env.example .env
-# edit .env only if you choose to use configured providers
+```text
+data/processed/birddex/class_index.json
 ```
 
-Provider tokens and private local runtime values stay in `.env` and must not be committed.
+`birdidex images scaffold` creates:
 
----
-
-## Run the offline MVP pipeline
-
-Every step below is **offline and deterministic** — no network, no provider tokens, no media
-downloads. Outputs land in `data/manifests/`, `data/splits/`, `data/reports/`, and `data/db/`
-(all git-ignored).
-
-```bash
-make dry-run-pipeline     # scan-candidates → build-manifest → build-splits → demo-inference
+```text
+data/images/raw/{class_id:03d}.{label}/
+data/images/review/{class_id:03d}.{label}/
+data/images/quarantine/{class_id:03d}.{label}/
+data/images/processed/{class_id:03d}.{label}/
+data/images/splits/train/{class_id:03d}.{label}/
+data/images/splits/val/{class_id:03d}.{label}/
+data/images/splits/test/{class_id:03d}.{label}/
 ```
 
-Or run the stages individually:
+Classes are never inferred from folders. Ambiguous taxa are marked as not clean classifier classes
+and excluded from fetching by default when common or scientific names contain `sp.` or `/`.
 
-```bash
-make scan-candidates      # ROI species scoring → data/manifests/roi_species_candidates.csv
-                          #   + species_priority_tiers.csv + candidates report
-make build-manifest       # iNat fixture → data/manifests/images_manifest.csv
-                          #   + licence / class-balance / duplicate reports
-make build-splits         # train/val/test CSVs + data/reports/split_report.md
-make demo-inference       # mock detect→crop→classify→log → data/db/observations.sqlite3
-make export-observations  # observation log → CSV + JSON under data/reports/
-make run-ui-dev           # cyberdeck UI at http://127.0.0.1:8000/ (reads the local DB)
-```
+Generated outputs include:
 
-The scanner CLI is also available directly:
+- `data/images/class_folder_index.csv`
+- `data/images/image_dataset_manifest.json`
+- `data/images/metadata/image_records.jsonl`
+- `data/images/reports/class_counts.csv`
+- `data/images/reports/license_summary.csv`
+- `data/images/reports/provider_summary.csv`
+- `data/images/reports/review_queue.html`
 
-```bash
-uv run python -m bird_roi_scan.cli candidates        # offline dry-run scan
-uv run python -m bird_roi_scan.cli pull-occurrences  # refuses without --live (not implemented)
-```
+Generated image data, local databases, logs, model weights, caches, provider tokens, and retrieved
+media stay out of version control.
 
-**Optional, explicit-only steps** (not run by default, not implemented as network calls in this MVP):
+## Dependency Groups
 
-```bash
-uv run python scripts/dataset/06_build_image_manifest.py --retrieve-media   # refuses (documents intent)
-uv run python -m bird_roi_scan.cli pull-occurrences --live                  # refuses (not implemented)
-```
+The uv groups are intentionally small and named by workflow:
 
-Training and ONNX export are runnable **skeletons** — they fail fast with an install hint unless the
-`training` / `inference` dependency groups are synced. No trained weights ship with the repo.
-
----
-
-## Dependency groups
-
-| Group | What it's for |
-|-------|--------------|
-| `dev` | ruff, pyright, pytest, mypy, pre-commit, notebooks |
-| `scanner` | polars, pyarrow, duckdb, geopandas, shapely, provider parsing |
-| `vision` | opencv-python-headless, pillow, albumentations, scikit-image |
-| `training` | ROCm-routed torch, torchvision, torchaudio, timm, lightning, mlflow |
-| `tensorflow` | tensorflow, keras |
-| `inference` | onnx, onnxruntime, openvino, opencv-python-headless, psutil |
-| `ui` | fastapi, uvicorn, jinja2 |
-| `exporter` | onnx, onnxruntime, openvino |
-
----
-
-## ROI
-
-Two ROIs are defined:
-
-- **Prototype ROI** (first build) — three SEQ corridors, encoded as one MultiPolygon in
-  [configs/roi/prototype_roi.geojson](configs/roi/prototype_roi.geojson)
-  ([config](configs/roi/prototype_roi.yaml)):
-  - Lamington National Park / Springbrook
-  - Bribie Island → Nudgee → Beerburrum
-  - Noosa → Rainbow Beach → K'gari
-- **Full ROI** (later) — Bundaberg → Sunshine Coast → Brisbane → Toowoomba → Warwick → Goondiwindi
-  ([configs/roi/roi.yaml](configs/roi/roi.yaml)).
-
-**Both GeoJSON polygons are coarse placeholders.** Review them against a Queensland map (QGIS)
-before running any scans.
-
-## Work categories
-
-The project is split into eight work categories (ML pipeline, dataset/ROI, offline app/UI, custom
-OS image, firmware, camera/sensor integration, deployment/field validation, shared contracts/docs).
-See [docs/WORK_CATEGORIES.md](docs/WORK_CATEGORIES.md) for the mapping and per-category task sheets
-in [docs/task_sheet/categories/](docs/task_sheet/categories/).
-
----
+| Group | Purpose |
+| --- | --- |
+| `dev` | tests, linting, type checking, notebooks |
+| `scanner` | ROI/geospatial and provider-support tools |
+| `vision` | local image inspection and corruption checks |
+| `training` | future training stack |
+| `inference` | future local inference runtime |
+| `ui` | local FastAPI UI scaffold |
 
 ## Docs
 
-- [docs/WORK_CATEGORIES.md](docs/WORK_CATEGORIES.md) — eight work categories mapped to the repo, with per-category task sheets
-- [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) — uv setup, Makefile commands, VSCodium, PyTorch ROCm notes
-- [docs/AGENT_README.md](docs/AGENT_README.md) — agent-safe project boundaries and safe first commands
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, data flow, design decisions
-- [docs/RESTRUCTURE_AUDIT.md](docs/RESTRUCTURE_AUDIT.md) — 2026-06-13 monorepo restructure: what moved, merged, backed up
-- [docs/AUDIT_STACK_SCAFFOLD.md](docs/AUDIT_STACK_SCAFFOLD.md) — earlier scaffold report (historical)
-
----
-
-## History
-
-The earlier root-level `bird-roi-scan/` prototype (working Pydantic models, web_search query
-templates, and a lot of broken empty stubs) was folded into `apps/bird_roi_scan/` and the shared
-packages during the **2026-06-13 restructure**, then removed from the tree. Its original source —
-including the broken space-prefixed ` __init__.py` files — is archived under
-`audit_backups/restructure_<timestamp>/`. Full details in
-[docs/RESTRUCTURE_AUDIT.md](docs/RESTRUCTURE_AUDIT.md).
+- [docs/AGENT_README.md](docs/AGENT_README.md) - agent boundaries and safe commands
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - current single-package architecture
+- [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) - uv and dependency-group notes
+- [docs/WORK_CATEGORIES.md](docs/WORK_CATEGORIES.md) - current work areas

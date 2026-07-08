@@ -1,5 +1,5 @@
 {
-  "_comment": "PROTOTYPE ROI for the first BirdDex field build. THREE coarse corridors, encoded as ONE MultiPolygon feature so bird_geo.load_roi_shape() returns the whole ROI (it reads features[0]). Coordinates are WGS84 (lon, lat) and are APPROXIMATE rectangular placeholders — review and refine each corridor in QGIS before running any occurrence scans. The properties.sub_regions array names the polygons in MultiPolygon order.",
+  "_comment": "PROTOTYPE ROI for the first BirdDex field build. THREE coarse corridors, encoded as ONE MultiPolygon feature so birdidex.roi.load_roi_shape() returns the whole ROI (it reads features[0]). Coordinates are WGS84 (lon, lat) and are APPROXIMATE rectangular placeholders - review and refine each corridor in QGIS before running any occurrence scans. The properties.sub_regions array names the polygons in MultiPolygon order.",
   "type": "FeatureCollection",
   "features": [
     {

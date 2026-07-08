@@ -1,1 +1,1 @@
-"""Cyberdeck web UI for the Bird Pokedex."""
+"""Minimal UI package for the BIRDIDEX skeleton."""

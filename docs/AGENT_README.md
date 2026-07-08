@@ -1,79 +1,61 @@
 # Agent README
 
 BIRDIDEX is a local offline bird-identification research and engineering project. The intended
-device is a field-use cyberdeck for South East Queensland birds, with a Raspberry Pi 5 class target,
-local camera input, runtime-friendly vision models, and no internet requirement during field
-inference.
+device remains a field-use system for South East Queensland birds, but this checkout is currently a
+software scaffold for dataset preparation and future model work.
 
 ## Current Status
 
-The repository now carries a runnable **software MVP** that works entirely offline (dry-run):
-ROI species candidates → licensed image manifest → dataset splits → training/inference skeletons →
-SQLite observation logging → minimal FastAPI UI. Run it with `make dry-run-pipeline`, or see the
-"Run the offline MVP pipeline" section of the root README. The current suite has 148 passing
-offline tests and 2 skipped training-boundary tests.
+The repo has been collapsed to one Python package under `src/birdidex/` and one CLI:
 
-Treat every capability as skeleton-level unless a test proves a narrower claim. **No model has been
-trained**: the classifier/detector training and ONNX export are runnable skeletons that fail fast
-without the `training`/`inference` dependency groups, and the inference demo uses a deterministic
-mock — it makes no accuracy claim.
+```bash
+uv run birdidex --help
+```
 
-No provider requests or media retrieval run by default. Live provider occurrence requests and media
-retrieval exist only as explicit, opt-in commands that currently refuse to act (they document the
-required behaviour rather than performing network I/O). Makefile verification targets are local
-checks. Future provider access must be triggered by explicit user commands and configuration.
+Implemented now:
+
+- class-index parsing from `data/processed/birddex/class_index.json`
+- ImageFolder-style folder scaffolding under `data/images/`
+- metadata-first provider record normalization
+- JSONL metadata writing and simple reports
+- deterministic train/val/test split symlinks from accepted local records
+- thin training, inference, and UI skeleton commands
+
+Not implemented:
+
+- real image download
+- model training
+- model inference
+- production UI behavior
+- on-device deployment
 
 ## Provider And Data Boundaries
 
-External provider access is optional and user-configured. Provider tokens and other private local
-runtime values belong only in local `.env` files or equivalent local runtime configuration.
+No provider requests or media retrieval run by default. Provider access must be explicit and
+metadata-first. Use documented provider APIs only. Do not scrape Google or Bing image results.
 
-Use structured biodiversity sources first:
+Only explicit open-license media metadata is eligible for accepted records. Unknown licences,
+missing image URLs, duplicate provider records, ambiguous taxa, and scientific-name mismatches are
+quarantined or routed for review.
 
-- Atlas of Living Australia
-- GBIF
-- iNaturalist
-- eBird when configured
-
-Use only documented biodiversity, media, or search-provider APIs. Do not scrape search result pages
-directly. Web keyword search is optional weak evidence, not a primary occurrence source.
-
-When media retrieval is implemented, retrieve open-licence media only when explicitly requested.
-Preserve licence metadata, attribution, source record IDs, and source URLs in manifests.
-
-Private local configuration, retrieved media, raw/interim/processed data, logs, local databases,
-model checkpoints, exports, and generated review artefacts stay out of version control.
+Private local configuration, retrieved media, raw/interim/processed datasets, generated image
+folders, logs, local databases, model checkpoints, exports, cache files, and provider tokens stay
+out of version control.
 
 ## Safe First Commands
 
 ```bash
-make doctor
-make test
+uv run birdidex doctor
+uv run birdidex images scaffold
+uv run birdidex images report
+uv run pytest
 make audit-tree
-make run-scanner-help
 ```
 
-These commands are intended as local verification/help commands. They should not retrieve datasets,
-make provider requests, train models, or start deployment work.
+These commands are local checks/scaffolds. They should not retrieve media, train models, make
+provider requests, or start deployment work.
 
 ## Architecture Boundary
 
-Keep the existing uv monorepo architecture unchanged. Apps import shared packages. Shared packages
-do not import apps. Shared resources such as `configs/`, `data/`, `models/`, `notebooks/`, `scripts/`,
-`tests/`, and `docs/` live at the repo root.
-
-## Implementation Status
-
-Software MVP (offline dry-run) implemented — see `make dry-run-pipeline`:
-
-1. Repo audit — done
-2. ROI species candidates — done (`bird_roi_scan`, `scripts/dataset/04`)
-3. Licensed manifest — done (`bird_data.manifest_build`, `scripts/dataset/06`)
-4. Dataset splits — done (`bird_data.splits`, `scripts/dataset/07`)
-5. Baseline training skeleton — done, dependency-gated (`bird_training`)
-6. ONNX export + quantisation hook — done, dependency-gated (`bird_training.export_onnx`)
-7. Inference skeleton + reranker — done (`bird_inference`)
-8. SQLite logging + cyberdeck UI — done (`bird_data.observation_log`, `bird_ui`)
-
-Remaining real-data work (not in this MVP): live provider requests, actual media retrieval,
-real model training/evaluation on retrieved data, and on-device deployment.
+Keep the repo simple: one package, one CLI, one uv environment. Do not add new internal packages,
+apps, provider subpackages, or uv workspace members without an explicit request.
