@@ -1,0 +1,27 @@
+# Provider configuration template.
+# Copy to configs/providers.local.toml (gitignored) and adjust as needed.
+# SECRETS ARE NEVER STORED HERE — this file only names the environment variables that
+# hold them. Put the real values in .env.local.
+
+[ebird]
+enabled = true
+# Environment variable that holds the eBird API token (X-eBirdApiToken header).
+api_key_env = "EBIRD_API_KEY"
+base_url = "https://api.ebird.org/v2"
+# Default region used for occurrence/season/locality priors. "seq" is an alias for
+# AU-QLD (South East Queensland has no single eBird region code).
+default_region = "seq"
+recent_days = 30
+max_results = 200
+# Role: regional context priors only. eBird never supplies training images.
+role = "region_priors"
+
+[inaturalist]
+enabled = true
+# Optional OAuth token; public endpoints work without it.
+access_token_env = "INATURALIST_ACCESS_TOKEN"
+base_url = "https://api.inaturalist.org/v1"
+quality_grade = "research"
+per_page = 25
+# Role: open-license labelled photo metadata and image downloads.
+role = "image_metadata"

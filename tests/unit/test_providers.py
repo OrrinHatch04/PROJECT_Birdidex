@@ -1,7 +1,23 @@
 from __future__ import annotations
 
-from birdidex.providers import fetch_inaturalist, validate_metadata_records
+from birdidex.providers import (
+    _inat_full_size_url,
+    fetch_inaturalist,
+    validate_metadata_records,
+)
 from birdidex.taxonomy import TaxonClass
+
+
+def test_inat_url_upgraded_to_full_size() -> None:
+    base = "https://inaturalist-open-data.s3.amazonaws.com/photos/1/{}.jpg"
+    assert _inat_full_size_url(base.format("square")) == base.format("large")
+    assert _inat_full_size_url(base.format("small")) == base.format("large")
+    # already large / unknown patterns are left intact
+    assert _inat_full_size_url(base.format("large")) == base.format("large")
+    assert _inat_full_size_url("https://static.inaturalist.org/photo.jpg") == (
+        "https://static.inaturalist.org/photo.jpg"
+    )
+    assert _inat_full_size_url(None) is None
 
 
 class MockResponse:

@@ -17,8 +17,18 @@ htmlcov/
 .coverage
 coverage.xml
 
-# Private local runtime config
+# Private local runtime config, secrets, tokens, and the project seed.
+# Rule: anything named "local" or holding real secrets is NEVER committed —
+# commit a *.example.* skeleton instead (skeletons are re-included below).
 .env
+.env.*
+*.local
+*.local.*
+!*.example
+!*.example.*
+# Explicit sensitive files that are not named "local":
+configs/scanner/providers.yaml
+data/seeds/master_seed.txt
 
 # Local biodiversity data, media manifests, reports, and generated outputs (preserve .gitkeep)
 data/raw/*
@@ -30,6 +40,10 @@ data/splits/*
 data/media/*
 data/db/*
 data/images/*
+data/external/*
+data/annotated_dataset/
+data/cache/*
+data/profiles/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
@@ -39,6 +53,9 @@ data/images/*
 !data/media/.gitkeep
 !data/db/.gitkeep
 !data/images/.gitkeep
+!data/external/.gitkeep
+!data/cache/.gitkeep
+!data/profiles/.gitkeep
 
 # Local databases (SQLite observation log)
 *.sqlite3
@@ -57,10 +74,15 @@ models/quantized/*
 *.pt
 *.pth
 *.onnx
+*.ckpt
 *.duckdb
 *.parquet
 *.log
 logs/
+
+# Dataset archives (Big Bird etc.) — but keep the tiny test fixture
+*.zip
+!tests/fixtures/tiny_bigbird.zip
 
 # IDE
 .vscode/*

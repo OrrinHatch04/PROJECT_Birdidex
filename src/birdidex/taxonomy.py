@@ -98,10 +98,17 @@ def load_class_index(path: Path | None = None) -> list[TaxonClass]:
 
     classes: list[TaxonClass] = []
     seen_ids: set[int] = set()
+    seen_labels: set[str] = set()
     seen_folders: set[str] = set()
+    required = {"class_id", "label", "common_name", "scientific_name"}
     for row in rows:
         if not isinstance(row, dict):
             raise ValueError(f"class row must be an object, got {type(row).__name__}")
+        missing = required - row.keys()
+        if missing:
+            raise ValueError(
+                f"class row in {class_index} missing required fields: {sorted(missing)}"
+            )
         class_id = int(row["class_id"])
         label = str(row["label"])
         taxon = TaxonClass(
@@ -117,9 +124,12 @@ def load_class_index(path: Path | None = None) -> list[TaxonClass]:
         )
         if taxon.class_id in seen_ids:
             raise ValueError(f"duplicate class_id in {class_index}: {taxon.class_id}")
+        if taxon.label in seen_labels:
+            raise ValueError(f"duplicate class label in {class_index}: {taxon.label}")
         if taxon.folder_name in seen_folders:
             raise ValueError(f"duplicate class folder in {class_index}: {taxon.folder_name}")
         seen_ids.add(taxon.class_id)
+        seen_labels.add(taxon.label)
         seen_folders.add(taxon.folder_name)
         classes.append(taxon)
 
@@ -134,6 +144,27 @@ def clean_classifier_classes(classes: list[TaxonClass]) -> list[TaxonClass]:
 
 def classes_by_id(classes: list[TaxonClass]) -> dict[int, TaxonClass]:
     return {taxon.class_id: taxon for taxon in classes}
+
+
+def find_taxon(classes: list[TaxonClass], name: str) -> TaxonClass | None:
+    """Find a class by common name, scientific name, label, folder name, slug, or id."""
+    token = name.strip().lower()
+    slug = slugify(name)
+    sci = normalise_scientific_name(name).lower()
+    for taxon in classes:
+        candidates = {
+            taxon.label.lower(),
+            taxon.folder_name.lower(),
+            taxon.common_name.lower(),
+            slugify(taxon.common_name),
+            str(taxon.class_id),
+        }
+        if taxon.scientific_name:
+            candidates.add(normalise_scientific_name(taxon.scientific_name).lower())
+            candidates.add(slugify(taxon.scientific_name))
+        if token in candidates or slug in candidates or sci in candidates:
+            return taxon
+    return None
 
 
 def expected_class_folders(classes: list[TaxonClass]) -> set[str]:

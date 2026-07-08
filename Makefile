@@ -1,7 +1,9 @@
 .PHONY: help setup sync sync-all sync-dev sync-scanner sync-training sync-inference sync-ui sync-pi \
         lint format typecheck mypy test doctor verify-stack run-scanner-help run-ui-dev \
         clean clean-caches audit-tree scan-candidates images-scaffold images-report \
-        images-fetch-manifest images-split train-help infer-help ui-help
+        images-fetch-manifest images-fetch images-fetch-dry images-split train-help infer-help \
+        ui-help bigbird-audit profiles-build observations-schema audit-dataset \
+        providers-doctor images-pipeline images-pipeline-all notebook-check test-live
 
 UV := uv
 PYTHON := python3.11
@@ -15,10 +17,21 @@ help:
 	@echo "  doctor               uv run birdidex doctor"
 	@echo "  verify-stack         Run local smoke checks"
 	@echo "  scan-candidates      Write offline candidate CSV from class_index.json"
+	@echo "  providers-doctor     Report provider auth config (redacted, no network)"
+	@echo "  images-pipeline      Deterministic 5-species eBird+iNaturalist run"
+	@echo "  images-pipeline-all  Full-dataset eBird+iNaturalist run"
+	@echo "  test-live            Run live provider tests (needs .env.local)"
 	@echo "  images-scaffold      Create data/images ImageFolder scaffold"
 	@echo "  images-fetch-manifest  Write metadata-first provider manifest"
+	@echo "  images-fetch-dry     Validate provider metadata without downloading"
+	@echo "  images-fetch         Download open-license images (opt-in network use)"
 	@echo "  images-split         Create train/val/test symlinks from accepted local records"
 	@echo "  images-report        Regenerate image reports"
+	@echo "  bigbird-audit        Audit the tiny Big Bird fixture zip"
+	@echo "  profiles-build       Build offline species profiles"
+	@echo "  observations-schema  Print the cyberdeck observation schema"
+	@echo "  audit-dataset        Write dataset coverage audit reports"
+	@echo "  notebook-check       Static-check the training notebook"
 	@echo "  run-ui-dev           Start local UI dev server"
 	@echo "  clean                Remove local tool caches"
 
@@ -80,6 +93,18 @@ run-ui-dev:
 scan-candidates:
 	$(UV) run birdidex scan-candidates
 
+providers-doctor:
+	$(UV) run birdidex providers doctor
+
+images-pipeline:
+	$(UV) run birdidex images pipeline --species-limit 5 --per-class 25 --target-accepted 10 --max-edge 1024 --format jpg --quality 85
+
+images-pipeline-all:
+	$(UV) run birdidex images pipeline --all --per-class 250 --target-accepted 200 --max-edge 1024 --format jpg --quality 85
+
+test-live:
+	$(UV) run pytest -m live_api
+
 images-scaffold:
 	$(UV) run birdidex images scaffold
 
@@ -91,6 +116,27 @@ images-split:
 
 images-report:
 	$(UV) run birdidex images report
+
+images-fetch-dry:
+	$(UV) run birdidex images fetch --all --per-class 250 --target-accepted 200 --dry-run
+
+images-fetch:
+	$(UV) run birdidex images fetch --all --per-class 250 --target-accepted 200
+
+bigbird-audit:
+	$(UV) run birdidex bigbird audit --zip tests/fixtures/tiny_bigbird.zip
+
+profiles-build:
+	$(UV) run birdidex profiles build
+
+observations-schema:
+	$(UV) run birdidex observations schema
+
+audit-dataset:
+	$(UV) run birdidex audit dataset
+
+notebook-check:
+	$(UV) run python scripts/check_notebook_static.py notebooks/training/SEQ_BirdDex_Machine_Learning.ipynb
 
 train-help:
 	$(UV) run birdidex train --help

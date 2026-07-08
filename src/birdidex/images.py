@@ -6,8 +6,10 @@ import csv
 import html
 import json
 from collections import Counter
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from birdidex.paths import images_dir as default_images_dir
 from birdidex.providers import (
@@ -33,8 +35,124 @@ DATASET_MANIFEST = "image_dataset_manifest.json"
 IMAGE_RECORDS = "image_records.jsonl"
 
 
+@dataclass(frozen=True)
+class ImageInspection:
+    path: str
+    can_open: bool
+    width: int | None = None
+    height: int | None = None
+    mode: str | None = None
+    sharpness_score: float | None = None
+    error: str | None = None
+
+
 def utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+def _pillow() -> Any:
+    try:
+        from PIL import Image
+    except ImportError as exc:  # pragma: no cover - depends on optional vision group
+        raise RuntimeError("Pillow is required for image inspection utilities") from exc
+    return Image
+
+
+def validate_image_can_open(path: Path) -> bool:
+    """Return True when Pillow can decode the image header and pixel data."""
+    Image = _pillow()
+    try:
+        with Image.open(path) as image:
+            image.verify()
+        with Image.open(path) as image:
+            image.load()
+    except Exception:  # noqa: BLE001 - corrupt image formats raise many exception types
+        return False
+    return True
+
+
+def image_dimensions(path: Path) -> tuple[int, int]:
+    """Return image dimensions without applying any model transform."""
+    Image = _pillow()
+    with Image.open(path) as image:
+        return image.size
+
+
+def open_image_rgb(path: Path) -> Any:
+    """Open an image as RGB so later transforms receive a stable color mode."""
+    Image = _pillow()
+    with Image.open(path) as image:
+        image.load()
+        return image.convert("RGB")
+
+
+def resize_with_aspect(image: Any, max_edge: int, *, allow_upscale: bool = False) -> Any:
+    """Resize while preserving aspect ratio and never distort bird detail."""
+    if max_edge <= 0:
+        raise ValueError("max_edge must be positive")
+    rgb = image.convert("RGB")
+    longest = max(rgb.size)
+    if longest <= max_edge and not allow_upscale:
+        return rgb.copy()
+    scale = max_edge / longest
+    new_size = (max(1, round(rgb.width * scale)), max(1, round(rgb.height * scale)))
+    Image = _pillow()
+    return rgb.resize(new_size, Image.Resampling.LANCZOS)
+
+
+def letterbox_image(
+    image: Any,
+    size: int | tuple[int, int],
+    *,
+    fill: tuple[int, int, int] = (0, 0, 0),
+) -> Any:
+    """Fit an RGB image inside ``size`` and pad the remaining area."""
+    if isinstance(size, int):
+        target = (size, size)
+    else:
+        target = size
+    if target[0] <= 0 or target[1] <= 0:
+        raise ValueError("letterbox target dimensions must be positive")
+
+    contained = resize_with_aspect(image, max(target), allow_upscale=True)
+    if contained.width > target[0] or contained.height > target[1]:
+        scale = min(target[0] / contained.width, target[1] / contained.height)
+        Image = _pillow()
+        contained = contained.resize(
+            (max(1, round(contained.width * scale)), max(1, round(contained.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+
+    Image = _pillow()
+    canvas = Image.new("RGB", target, fill)
+    offset = ((target[0] - contained.width) // 2, (target[1] - contained.height) // 2)
+    canvas.paste(contained, offset)
+    return canvas
+
+
+def basic_sharpness_score(image: Any) -> float:
+    """Compute a cheap edge-variance score for triaging very soft images."""
+    from PIL import ImageFilter, ImageStat
+
+    gray = image.convert("L")
+    edges = gray.filter(ImageFilter.FIND_EDGES)
+    return float(ImageStat.Stat(edges).var[0])
+
+
+def inspect_image(path: Path) -> ImageInspection:
+    """Return decode, dimensions, mode, and sharpness without mutating files."""
+    try:
+        image = open_image_rgb(path)
+        return ImageInspection(
+            path=str(path),
+            can_open=True,
+            width=image.width,
+            height=image.height,
+            mode=image.mode,
+            sharpness_score=basic_sharpness_score(image),
+        )
+    except Exception as exc:  # noqa: BLE001 - notebook audit should report, not crash
+        return ImageInspection(path=str(path), can_open=False, error=f"{type(exc).__name__}: {exc}")
 
 
 def image_records_path(images_root: Path | None = None) -> Path:
@@ -238,8 +356,8 @@ def write_review_queue_html(records: list[ImageMetadataRecord], output_path: Pat
     output_path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "<!doctype html>",
-        "<html lang=\"en\">",
-        "<meta charset=\"utf-8\">",
+        '<html lang="en">',
+        '<meta charset="utf-8">',
         "<title>BIRDIDEX image review queue</title>",
         "<h1>BIRDIDEX image review queue</h1>",
         "<table>",
@@ -248,7 +366,7 @@ def write_review_queue_html(records: list[ImageMetadataRecord], output_path: Pat
     ]
     for record in rows:
         page = html.escape(record.page_url or "")
-        page_cell = f"<a href=\"{page}\">source</a>" if page else ""
+        page_cell = f'<a href="{page}">source</a>' if page else ""
         lines.append(
             "<tr>"
             f"<td>{record.class_id:03d}.{html.escape(record.label)}</td>"

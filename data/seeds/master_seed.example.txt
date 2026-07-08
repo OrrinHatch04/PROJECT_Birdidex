@@ -1,0 +1,5 @@
+# Skeleton project seed file. Copy to data/seeds/master_seed.txt (gitignored) and set a
+# real value. birdidex.secrets.load_master_seed reads the SEED: line (or a bare value),
+# or you can set BIRDIDEX_MASTER_SEED in .env.local instead.
+
+SEED: 0

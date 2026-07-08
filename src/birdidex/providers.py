@@ -7,10 +7,17 @@ mock client.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, replace
+import re
+from collections import Counter
+from dataclasses import asdict, dataclass, field, fields, replace
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from birdidex.taxonomy import TaxonClass, scientific_names_match
+from birdidex.taxonomy import (
+    TaxonClass,
+    normalise_scientific_name,
+    scientific_names_match,
+)
 
 OPEN_LICENSE_CODES: frozenset[str] = frozenset(
     {
@@ -59,15 +66,52 @@ class ImageMetadataRecord:
     raw_metadata: dict[str, Any]
     local_path: str | None = None
     sha256: str | None = None
+    phash: str | None = None
+    stored_width: int | None = None
+    stored_height: int | None = None
+    stored_format: str | None = None
+    stored_quality: int | None = None
+    downloaded_at: str | None = None
     status: str = "review"
     validation_issues: list[str] = field(default_factory=list)
 
+    # ``width``/``height`` are the provider-reported original dimensions. The dataset
+    # schema in the docs names these ``original_width``/``original_height`` and the
+    # validation state ``validation_status``/``rejection_reason``; ``to_dict`` emits
+    # those aliases so on-disk records match the documented contract while the code
+    # keeps the shorter internal names.
+    @property
+    def original_width(self) -> int | None:
+        return self.width
+
+    @property
+    def original_height(self) -> int | None:
+        return self.height
+
+    @property
+    def rejection_reason(self) -> str | None:
+        return "; ".join(self.validation_issues) or None
+
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["original_width"] = self.width
+        data["original_height"] = self.height
+        data["validation_status"] = self.status
+        data["rejection_reason"] = self.rejection_reason
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ImageMetadataRecord:
         payload = dict(data)
+        # Accept the documented aliases when reading records back.
+        if "width" not in payload and "original_width" in payload:
+            payload["width"] = payload.get("original_width")
+        if "height" not in payload and "original_height" in payload:
+            payload["height"] = payload.get("original_height")
+        if "status" not in payload and "validation_status" in payload:
+            payload["status"] = payload.get("validation_status")
+        known = {f.name for f in fields(cls)}
+        payload = {key: value for key, value in payload.items() if key in known}
         payload.setdefault("local_path", None)
         payload.setdefault("sha256", None)
         payload.setdefault("status", "review")
@@ -122,6 +166,18 @@ def _int(value: Any) -> int | None:
         return int(value) if value not in (None, "") else None
     except (TypeError, ValueError):
         return None
+
+
+# iNaturalist photo URLs default to a 75px ``square`` thumbnail; the size token in the
+# path selects the variant. Upgrade to ``large`` (~1024px longest edge) so downloaded
+# training images carry real detail instead of being rejected as too small.
+_INAT_SIZE_RE = re.compile(r"/(square|small|medium|large|original)\.(?=[A-Za-z0-9]+($|\?))")
+
+
+def _inat_full_size_url(url: str | None, *, size: str = "large") -> str | None:
+    if not url:
+        return url
+    return _INAT_SIZE_RE.sub(f"/{size}.", url)
 
 
 def _inat_location(obs: dict[str, Any]) -> tuple[float | None, float | None]:
@@ -189,7 +245,7 @@ def normalize_inaturalist(payload: Any, taxon: TaxonClass) -> list[ImageMetadata
                     taxon,
                     provider="inaturalist",
                     provider_record_id=f"{obs_id}:{photo_id}",
-                    image_url=photo.get("url") or photo.get("original_url"),
+                    image_url=_inat_full_size_url(photo.get("url") or photo.get("original_url")),
                     page_url=obs.get("uri")
                     or (f"https://www.inaturalist.org/observations/{obs_id}" if obs_id else None),
                     license_code=photo.get("license_code") or obs.get("license_code"),
@@ -354,21 +410,27 @@ def fetch_inaturalist(
     client: HttpClient | None = None,
     limit: int = 25,
     live: bool = False,
+    access_token: str | None = None,
 ) -> list[ImageMetadataRecord]:
     if not live:
         return []
     import httpx
 
-    http = client or httpx.Client(timeout=30)
-    response = http.get(
-        "https://api.inaturalist.org/v1/observations",
-        params={
+    # Public observation search works without auth; a token is used only if supplied.
+    headers = {"Authorization": f"Bearer {access_token}"} if access_token else None
+    http = client or httpx.Client(timeout=30, headers=headers)
+    kwargs: dict[str, Any] = {
+        "params": {
             "taxon_name": taxon.scientific_name or taxon.common_name,
             "photos": "true",
             "quality_grade": "research",
             "per_page": limit,
-        },
-    )
+            "license": "cc0,cc-by,cc-by-nc,cc-by-sa,cc-by-nc-sa",
+        }
+    }
+    if client is not None and headers is not None:
+        kwargs["headers"] = headers
+    response = http.get("https://api.inaturalist.org/v1/observations", **kwargs)
     return normalize_inaturalist(_json(response), taxon)
 
 
@@ -503,3 +565,232 @@ def validate_metadata_records(
         status = "accepted" if not issues else "quarantine"
         validated.append(replace(record, status=status, validation_issues=issues))
     return validated
+
+
+# ---------------------------------------------------------------------------
+# eBird regional occurrence priors
+#
+# eBird is used for *context*, not images: given a species and a region it returns
+# occurrence, seasonality, and locality signals that later re-rank (but never override)
+# visual classifier evidence. Auth uses the documented ``X-eBirdApiToken`` header.
+# ---------------------------------------------------------------------------
+
+EBIRD_TAXONOMY_URL = "https://api.ebird.org/v2/ref/taxonomy/ebird"
+EBIRD_SPECIES_OBS_URL = "https://api.ebird.org/v2/data/obs/{region}/recent/{species_code}"
+
+# Friendly region aliases mapped to eBird region codes. South East Queensland has no
+# single eBird code, so ``seq`` is approximated by the Queensland subnational region.
+EBIRD_REGION_ALIASES: dict[str, str] = {
+    "seq": "AU-QLD",
+    "south_east_queensland": "AU-QLD",
+    "south-east-queensland": "AU-QLD",
+    "qld": "AU-QLD",
+    "queensland": "AU-QLD",
+    "au": "AU",
+    "australia": "AU",
+}
+
+# Process-level cache so one dry-run does not refetch the (large) eBird taxonomy.
+_EBIRD_TAXONOMY_CACHE: dict[str, str] | None = None
+
+
+def resolve_ebird_region(region: str | None) -> str:
+    if not region:
+        return "AU-QLD"
+    token = region.strip()
+    return EBIRD_REGION_ALIASES.get(token.lower(), token)
+
+
+def ebird_headers(api_key: str) -> dict[str, str]:
+    return {"X-eBirdApiToken": api_key}
+
+
+@dataclass
+class EbirdPrior:
+    class_id: int
+    label: str
+    common_name: str
+    scientific_name: str
+    species_code: str | None
+    region: str
+    region_resolved: str
+    total_observations: int
+    total_individuals: int
+    distinct_localities: int
+    top_localities: list[dict[str, Any]]
+    month_histogram: dict[str, int]
+    first_observed_on: str | None
+    last_observed_on: str | None
+    sample_observations: list[dict[str, Any]]
+    provider: str = "ebird"
+    fetched_at: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _ebird_month(obs_dt: str | None) -> str | None:
+    if not obs_dt:
+        return None
+    parts = obs_dt.split("-")
+    if len(parts) >= 2 and parts[1].isdigit():
+        return f"{int(parts[1]):02d}"
+    return None
+
+
+def normalize_ebird_observations(
+    observations: Any,
+    taxon: TaxonClass,
+    *,
+    region: str,
+    region_resolved: str | None = None,
+    species_code: str | None = None,
+    sample_size: int = 10,
+    top_localities: int = 10,
+) -> EbirdPrior:
+    """Summarize eBird sightings for one species/region into an occurrence prior."""
+    rows = _records(observations)
+    resolved = region_resolved or resolve_ebird_region(region)
+
+    total_individuals = 0
+    locality_counts: Counter[str] = Counter()
+    month_counts: Counter[str] = Counter()
+    dates: list[str] = []
+    samples: list[dict[str, Any]] = []
+    derived_code = species_code
+
+    for obs in rows:
+        if derived_code is None:
+            derived_code = obs.get("speciesCode")
+        how_many = _int(obs.get("howMany"))
+        total_individuals += how_many or 0
+        loc_name = obs.get("locName") or obs.get("locId")
+        if loc_name:
+            locality_counts[str(loc_name)] += 1
+        obs_dt = obs.get("obsDt")
+        month = _ebird_month(obs_dt)
+        if month:
+            month_counts[month] += 1
+        if obs_dt:
+            dates.append(str(obs_dt))
+        if len(samples) < sample_size:
+            samples.append(
+                {
+                    "loc_name": obs.get("locName"),
+                    "obs_dt": obs_dt,
+                    "how_many": how_many,
+                    "latitude": _float(obs.get("lat")),
+                    "longitude": _float(obs.get("lng")),
+                    "obs_valid": obs.get("obsValid"),
+                }
+            )
+
+    dates.sort()
+    return EbirdPrior(
+        class_id=taxon.class_id,
+        label=taxon.label,
+        common_name=taxon.common_name,
+        scientific_name=taxon.scientific_name or "",
+        species_code=derived_code,
+        region=region,
+        region_resolved=resolved,
+        total_observations=len(rows),
+        total_individuals=total_individuals,
+        distinct_localities=len(locality_counts),
+        top_localities=[
+            {"loc_name": name, "observations": count}
+            for name, count in locality_counts.most_common(top_localities)
+        ],
+        month_histogram={month: month_counts[month] for month in sorted(month_counts)},
+        first_observed_on=dates[0] if dates else None,
+        last_observed_on=dates[-1] if dates else None,
+        sample_observations=samples,
+        fetched_at=datetime.now(UTC).replace(microsecond=0).isoformat(),
+    )
+
+
+def load_ebird_taxonomy(
+    *,
+    api_key: str,
+    client: HttpClient | None = None,
+    use_cache: bool = True,
+) -> dict[str, str]:
+    """Return a ``scientific_name(lower) -> speciesCode`` map from the eBird taxonomy."""
+    global _EBIRD_TAXONOMY_CACHE
+    if use_cache and _EBIRD_TAXONOMY_CACHE is not None:
+        return _EBIRD_TAXONOMY_CACHE
+    import httpx
+
+    http = client or httpx.Client(timeout=60)
+    response = http.get(EBIRD_TAXONOMY_URL, params={"fmt": "json"}, headers=ebird_headers(api_key))
+    rows = _json(response)
+    mapping: dict[str, str] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        sci = normalise_scientific_name(row.get("sciName")).lower()
+        code = row.get("speciesCode")
+        if sci and code:
+            mapping[sci] = str(code)
+    if use_cache:
+        _EBIRD_TAXONOMY_CACHE = mapping
+    return mapping
+
+
+def resolve_ebird_species_code(
+    taxon: TaxonClass,
+    *,
+    api_key: str,
+    client: HttpClient | None = None,
+    taxonomy_map: dict[str, str] | None = None,
+) -> str | None:
+    if not taxon.scientific_name:
+        return None
+    mapping = taxonomy_map or load_ebird_taxonomy(api_key=api_key, client=client)
+    return mapping.get(normalise_scientific_name(taxon.scientific_name).lower())
+
+
+def fetch_ebird_priors(
+    taxon: TaxonClass,
+    *,
+    region: str = "seq",
+    api_key: str | None = None,
+    client: HttpClient | None = None,
+    live: bool = False,
+    back: int = 30,
+    max_results: int = 200,
+    taxonomy_map: dict[str, str] | None = None,
+) -> EbirdPrior | None:
+    """Fetch and normalize regional eBird occurrence priors for one species.
+
+    Returns ``None`` when ``live`` is False (no network). When live, ``api_key`` must be
+    provided (resolved from :mod:`birdidex.secrets` by callers). No images are fetched.
+    """
+    if not live:
+        return None
+    if not api_key:
+        from birdidex.secrets import require_secret
+
+        api_key = require_secret("EBIRD_API_KEY")
+
+    import httpx
+
+    http = client or httpx.Client(timeout=60)
+    resolved = resolve_ebird_region(region)
+    species_code = resolve_ebird_species_code(
+        taxon, api_key=api_key, client=http, taxonomy_map=taxonomy_map
+    )
+    if species_code is None:
+        return normalize_ebird_observations(
+            [], taxon, region=region, region_resolved=resolved, species_code=None
+        )
+
+    response = http.get(
+        EBIRD_SPECIES_OBS_URL.format(region=resolved, species_code=species_code),
+        params={"back": back, "maxResults": max_results, "includeProvisional": "true"},
+        headers=ebird_headers(api_key),
+    )
+    payload = _json(response)
+    return normalize_ebird_observations(
+        payload, taxon, region=region, region_resolved=resolved, species_code=species_code
+    )

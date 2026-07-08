@@ -1,0 +1,43 @@
+# Skeleton provider configuration. Copy to configs/scanner/providers.yaml (gitignored)
+# and adjust locally. Commands do not make provider requests unless explicitly run.
+# SECRETS ARE NEVER STORED HERE — the *_env keys name the environment variables that
+# hold the real values. Put real values in .env.local.
+
+providers:
+  inaturalist:
+    enabled: true
+    base_url: "https://api.inaturalist.org/v1"
+    rate_limit_per_second: 1
+    quality_grade: "research"
+    max_records: 25
+
+  ala:
+    enabled: true
+    base_url: "https://biocache-ws.ala.org.au/ws"
+    rate_limit_per_second: 1
+    max_records: 25
+
+  gbif:
+    enabled: true
+    base_url: "https://api.gbif.org/v1"
+    rate_limit_per_second: 1
+    max_records: 25
+
+  wikimedia_commons:
+    enabled: true
+    base_url: "https://commons.wikimedia.org/w/api.php"
+    rate_limit_per_second: 1
+    max_records: 25
+
+  openverse:
+    enabled: true
+    base_url: "https://api.openverse.engineering/v1/images/"
+    rate_limit_per_second: 1
+    max_records: 25
+
+# Secrets are NEVER stored here. These entries name the environment variables that hold
+# the real values. Set them in .env.local (gitignored) or your shell environment.
+optional_runtime_config:
+  ebird_api_key_env: "EBIRD_API_KEY"
+  inaturalist_access_token_env: "INATURALIST_ACCESS_TOKEN"
+  master_seed_env: "BIRDIDEX_MASTER_SEED"

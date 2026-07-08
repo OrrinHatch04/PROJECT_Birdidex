@@ -31,6 +31,7 @@ dev = [
     "jupyterlab>=4.6.1",
     "notebook>=7.6.0",
     "ipywidgets>=8.1.8",
+    "pandas>=2",
 ]
 scanner = [
     "duckdb>=1",
@@ -132,3 +133,6 @@ exclude = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+markers = [
+    "live_api: hits real eBird/iNaturalist endpoints; skips when env vars are unset (run with -m live_api)",
+]

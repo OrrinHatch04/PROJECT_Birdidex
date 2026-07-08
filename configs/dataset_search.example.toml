@@ -1,0 +1,26 @@
+# Dataset search / collection template.
+# Copy to configs/dataset_search.local.toml (gitignored) to customise a collection run.
+# Contains no secrets.
+
+[selection]
+# Deterministic species selection is driven by BIRDIDEX_MASTER_SEED.
+species_limit = 5           # clean, non-ambiguous species per small run
+# species_list = ["Rainbow Lorikeet", "Laughing Kookaburra"]  # overrides selection
+include_ambiguous = false   # taxa with "sp." or "/" stay excluded
+
+[images]
+per_class = 250             # candidates fetched per class (some are rejected)
+target_accepted = 200       # accepted images to keep per clean class (aim 150-200)
+max_edge = 1024             # stored longest edge, px
+format = "jpg"              # jpg or webp
+quality = 85                # stored JPEG quality
+keep_originals = false      # discard full-resolution originals unless true
+
+[licenses]
+# Accepted open licenses. Non-commercial variants are opt-in here.
+accept = ["cc0", "cc-by", "cc-by-sa", "public-domain"]
+allow_non_commercial = false   # set true to also accept cc-by-nc / cc-by-nc-sa
+
+[ebird]
+region = "seq"              # eBird region code or alias for priors
+recent_days = 30

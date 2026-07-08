@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from birdidex.taxonomy import (
     class_folder_name,
     clean_classifier_classes,
@@ -54,3 +56,42 @@ def test_ambiguous_taxa_are_filtered_from_clean_classes(tmp_path: Path) -> None:
     assert is_ambiguous_taxon("Falco sp.", "Falco sp.")
     assert is_ambiguous_taxon("Duck/Goose", "Anas/Chenonetta")
     assert [taxon.label for taxon in clean_classifier_classes(classes)] == ["rainbow_bee_eater"]
+
+
+def test_class_index_requires_required_fields(tmp_path: Path) -> None:
+    path = tmp_path / "class_index.json"
+    path.write_text(
+        json.dumps({"classes": [{"class_id": 0, "label": "galah"}]}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="missing required fields"):
+        load_class_index(path)
+
+
+def test_class_index_rejects_duplicate_labels(tmp_path: Path) -> None:
+    path = tmp_path / "class_index.json"
+    path.write_text(
+        json.dumps(
+            {
+                "classes": [
+                    {
+                        "class_id": 0,
+                        "label": "galah",
+                        "common_name": "Galah",
+                        "scientific_name": "Eolophus roseicapilla",
+                    },
+                    {
+                        "class_id": 1,
+                        "label": "Galah",
+                        "common_name": "Galah alt",
+                        "scientific_name": "Eolophus example",
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicate class label"):
+        load_class_index(path)

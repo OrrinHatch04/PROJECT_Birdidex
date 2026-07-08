@@ -84,7 +84,7 @@ def main() -> int:
     print("\n=== Configs ===")
     for rel in [
         "configs/roi/roi.yaml",
-        "configs/scanner/providers.yaml",
+        "configs/scanner/providers.example.yaml",
         "configs/scanner/scoring.yaml",
         "configs/training/classifier.yaml",
         "configs/inference/runtime.yaml",

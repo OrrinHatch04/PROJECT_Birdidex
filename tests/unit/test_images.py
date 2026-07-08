@@ -4,8 +4,14 @@ import json
 from pathlib import Path
 
 from birdidex.images import (
+    basic_sharpness_score,
+    image_dimensions,
     image_records_path,
+    inspect_image,
+    letterbox_image,
+    open_image_rgb,
     read_metadata_jsonl,
+    resize_with_aspect,
     scaffold_image_dataset,
     validate_no_extra_class_folders,
     write_metadata_jsonl,
@@ -67,8 +73,7 @@ def test_scaffold_creates_only_class_index_folders(tmp_path: Path) -> None:
     assert (images_root / "raw" / "000.rainbow_bee_eater").is_dir()
     assert (images_root / "splits" / "test" / "001.galah").is_dir()
     assert (
-        validate_no_extra_class_folders(images_root=images_root, class_index_path=class_index)
-        == []
+        validate_no_extra_class_folders(images_root=images_root, class_index_path=class_index) == []
     )
 
     extra = images_root / "raw" / "999.not_in_class_index"
@@ -89,3 +94,26 @@ def test_metadata_jsonl_roundtrip(tmp_path: Path) -> None:
     assert records[0].provider == "inaturalist"
     assert records[0].status == "accepted"
     assert records[0].raw_metadata == {"id": 1}
+
+
+def test_image_quality_and_letterbox_helpers(tmp_path: Path) -> None:
+    from PIL import Image
+
+    source = tmp_path / "wide.jpg"
+    Image.new("RGB", (320, 160), (200, 20, 20)).save(source)
+
+    assert image_dimensions(source) == (320, 160)
+    rgb = open_image_rgb(source)
+    assert rgb.mode == "RGB"
+
+    resized = resize_with_aspect(rgb, 128)
+    assert resized.size == (128, 64)
+
+    boxed = letterbox_image(rgb, 224, fill=(0, 0, 0))
+    assert boxed.size == (224, 224)
+    assert basic_sharpness_score(boxed) >= 0
+
+    inspection = inspect_image(source)
+    assert inspection.can_open
+    assert inspection.width == 320
+    assert inspection.height == 160
