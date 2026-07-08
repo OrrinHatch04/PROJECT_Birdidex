@@ -1,1 +1,0 @@
-# 02_pull_structured_occuences.py
