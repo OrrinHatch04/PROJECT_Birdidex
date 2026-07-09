@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 birdidex = "birdidex.cli:app"
+birdidex-dataset-review = "birdidex.dataset_review:main"
 
 [dependency-groups]
 dev = [
@@ -60,6 +61,17 @@ training = [
     "tensorboard>=2",
     "scikit-learn>=1",
     "matplotlib>=3",
+    "ultralytics>=8.3.0",
+]
+dataset-review = [
+    "numpy>=1.26",
+    "pandas>=2",
+    "matplotlib>=3",
+    "opencv-python-headless>=4",
+    "pillow>=10",
+    "ultralytics>=8.3.0",
+    "torch==2.9.0",
+    "torchvision==0.24.0",
 ]
 inference = [
     "onnx>=1.16",
