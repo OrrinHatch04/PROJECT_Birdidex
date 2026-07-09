@@ -434,6 +434,88 @@ def fetch_inaturalist(
     return normalize_inaturalist(_json(response), taxon)
 
 
+def _inat_quality_score(record: ImageMetadataRecord) -> tuple[int, int]:
+    """Rank key for an iNaturalist candidate: (community faves, pixel resolution)."""
+    obs = record.raw_metadata.get("observation") if isinstance(record.raw_metadata, dict) else None
+    faves = 0
+    if isinstance(obs, dict):
+        faves = _int(obs.get("faves_count")) or _int(obs.get("cached_votes_total")) or 0
+    resolution = (record.width or 0) * (record.height or 0)
+    return (faves, resolution)
+
+
+def fetch_inaturalist_ranked(
+    taxon: TaxonClass,
+    *,
+    client: HttpClient | None = None,
+    limit: int = 250,
+    live: bool = False,
+    access_token: str | None = None,
+    min_edge: int = 0,
+    order: str = "votes",
+    exclude_ids: frozenset[tuple[str, str]] = frozenset(),
+    per_page: int = 200,
+    max_pages: int = 8,
+) -> list[ImageMetadataRecord]:
+    """Quality-ranked iNaturalist photos: most-faved first, one photo per observation.
+
+    Unlike :func:`fetch_inaturalist` (newest-first, every photo), this paginates research
+    -grade open-license observations ordered by community votes, keeps the representative
+    photo per observation, drops anything below ``min_edge`` (shortest original edge) or
+    already in ``exclude_ids``, and returns the best ``limit`` ranked by faves then
+    resolution. No bytes are downloaded here.
+    """
+    if not live:
+        return []
+    import httpx
+
+    headers: dict[str, str] = {"User-Agent": "birdidex/0.1 (bird dataset)"}
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+    http = client or httpx.Client(timeout=30, headers=headers)
+    order_by = "created_at" if order in ("recent", "created", "created_at") else "votes"
+
+    scored: dict[str, tuple[tuple[int, int], ImageMetadataRecord]] = {}
+    for page in range(1, max_pages + 1):
+        kwargs: dict[str, Any] = {
+            "params": {
+                "taxon_name": taxon.scientific_name or taxon.common_name,
+                "photos": "true",
+                "quality_grade": "research",
+                "per_page": per_page,
+                "page": page,
+                "order_by": order_by,
+                "order": "desc",
+                "photo_license": "cc0,cc-by,cc-by-nc,cc-by-sa,cc-by-nc-sa",
+            }
+        }
+        if client is not None:
+            kwargs["headers"] = headers
+        response = http.get("https://api.inaturalist.org/v1/observations", **kwargs)
+        records = normalize_inaturalist(_json(response), taxon)
+        if not records:
+            break
+        for record in records:
+            obs_id = record.provider_record_id.split(":", 1)[0]
+            if obs_id in scored:  # keep only the first (representative) photo per obs
+                continue
+            if (record.provider, record.provider_record_id) in exclude_ids:
+                continue
+            if (
+                min_edge
+                and record.width
+                and record.height
+                and min(record.width, record.height) < min_edge
+            ):
+                continue
+            scored[obs_id] = (_inat_quality_score(record), record)
+        if len(scored) >= limit:
+            break
+
+    ranked = sorted(scored.values(), key=lambda item: item[0], reverse=True)
+    return [record for _, record in ranked[:limit]]
+
+
 def fetch_ala(
     taxon: TaxonClass,
     *,

@@ -1,0 +1,32 @@
+services:
+  birdidex-jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: birdidex-uv-jupyter:latest
+    container_name: birdidex-jupyter
+    working_dir: /workspace/birdidex
+    environment:
+      UV_PROJECT_ENVIRONMENT: /opt/birdidex/.venv
+      UV_LINK_MODE: copy
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - .:/workspace/birdidex
+      - birdidex-uv-venv:/opt/birdidex/.venv
+      - birdidex-uv-cache:/home/vscode/.cache/uv
+      - birdidex-jupyter-data:/home/vscode/.local/share/jupyter
+    command:
+      - bash
+      - -lc
+      - >
+        uv sync --all-groups --frozen
+        && uv run python -m ipykernel install --user --name birdidex-uv --display-name "BIRDIDEX uv (.venv)"
+        && uv run jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --ServerApp.token='' --ServerApp.password=''
+
+volumes:
+  birdidex-uv-venv:
+  birdidex-uv-cache:
+  birdidex-jupyter-data:

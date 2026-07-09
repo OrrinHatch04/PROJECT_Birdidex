@@ -1,0 +1,42 @@
+# BIRDIDEX taxonomy manual overrides (EXAMPLE / template)
+#
+# Copy this file to `manual_overrides.local.toml` (which is git-ignored) and edit it to
+# record local Australian / SEQ naming decisions. The `taxonomy` commands read the
+# `.local.toml` copy automatically. Nothing here downloads media or calls the network.
+#
+# All three sections are optional. Scientific names are matched case-insensitively and
+# ignore spacing, so "Anas gracilis" and "anas  gracilis" resolve to the same species.
+
+# ---------------------------------------------------------------------------
+# 1. Force the ROI-relevance status of an expansion candidate.
+#    Valid statuses: confirmed_roi, likely_roi, australian_but_not_roi, uncertain, reject
+# ---------------------------------------------------------------------------
+[status_overrides]
+# Example: demote Little Curlew (scarce on the SEQ coast) so it is never auto-added.
+# "Numenius minutus" = "uncertain"
+# Example: reject a name-collision candidate outright.
+# "Burhinus grallarius" = "reject"
+
+# ---------------------------------------------------------------------------
+# 2. Add extra concrete candidate species to a curated group.
+#    Group keys: curlews, fairywrens, kingfishers, swallows_martins, teals, terns,
+#    fairy_tree_martin_split. Added candidates are treated as curated evidence and are
+#    only auto-added to the candidate index when their status is confirmed_roi/likely_roi.
+# ---------------------------------------------------------------------------
+# [[groups.kingfishers.candidates]]
+# common_name = "Buff-breasted Paradise-Kingfisher"
+# scientific_name = "Tanysiptera sylvia"
+# status = "australian_but_not_roi"
+# notes = "Far-north Queensland breeding migrant; not expected in SEQ."
+
+# ---------------------------------------------------------------------------
+# 3. Add or reject aliases / search terms for any clean species.
+#    Key by scientific name. `add` extends the alias + search-term list; `reject`
+#    removes names (case-insensitive) from both lists.
+# ---------------------------------------------------------------------------
+# [aliases."Menura alberti"]
+# add = ["Prince Albert's Lyrebird"]
+# reject = []
+#
+# [aliases."Threskiornis molucca"]
+# add = ["Tip Turkey"]

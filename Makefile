@@ -3,7 +3,8 @@
         clean clean-caches audit-tree scan-candidates images-scaffold images-report \
         images-fetch-manifest images-fetch images-fetch-dry images-split train-help infer-help \
         ui-help bigbird-audit profiles-build observations-schema audit-dataset \
-        providers-doctor images-pipeline images-pipeline-all notebook-check test-live
+        providers-doctor images-pipeline images-pipeline-all notebook-check \
+        docker-build docker-jupyter docker-shell docker-down test-live
 
 UV := uv
 PYTHON := python3.11
@@ -32,6 +33,10 @@ help:
 	@echo "  observations-schema  Print the cyberdeck observation schema"
 	@echo "  audit-dataset        Write dataset coverage audit reports"
 	@echo "  notebook-check       Static-check the training notebook"
+	@echo "  docker-build         Build the full uv/Jupyter container"
+	@echo "  docker-jupyter       Start Jupyter Lab in Docker for VSCodium Select Kernel"
+	@echo "  docker-shell         Open a shell in the running Docker container"
+	@echo "  docker-down          Stop the Docker compose services"
 	@echo "  run-ui-dev           Start local UI dev server"
 	@echo "  clean                Remove local tool caches"
 
@@ -137,6 +142,18 @@ audit-dataset:
 
 notebook-check:
 	$(UV) run python scripts/check_notebook_static.py notebooks/training/SEQ_BirdDex_Machine_Learning.ipynb
+
+docker-build:
+	docker compose build birdidex-jupyter
+
+docker-jupyter:
+	docker compose up birdidex-jupyter
+
+docker-shell:
+	docker compose exec birdidex-jupyter bash
+
+docker-down:
+	docker compose down
 
 train-help:
 	$(UV) run birdidex train --help

@@ -34,6 +34,10 @@ bigbird_app = typer.Typer(
 profiles_app = typer.Typer(help="Offline species profiles.", no_args_is_help=True)
 observations_app = typer.Typer(help="Cyberdeck observation schema.", no_args_is_help=True)
 audit_app = typer.Typer(help="Dataset coverage audit.", no_args_is_help=True)
+taxonomy_app = typer.Typer(
+    help="Expand ambiguous classes and build the Australian taxonomy/alias layer.",
+    no_args_is_help=True,
+)
 ui_app = typer.Typer(help="Local UI scaffold.", no_args_is_help=True)
 
 app.add_typer(images_app, name="images")
@@ -42,6 +46,7 @@ app.add_typer(bigbird_app, name="bigbird")
 app.add_typer(profiles_app, name="profiles")
 app.add_typer(observations_app, name="observations")
 app.add_typer(audit_app, name="audit")
+app.add_typer(taxonomy_app, name="taxonomy")
 app.add_typer(train.app, name="train")
 app.add_typer(infer.app, name="infer")
 app.add_typer(ui_app, name="ui")
@@ -120,11 +125,35 @@ def scan_candidates(
 def images_scaffold(
     class_index: Path = typer.Option(default_class_index_path(), help="Class index JSON."),
     root: Path = typer.Option(images_dir(), help="Image dataset root."),
+    move_reviewed: bool = typer.Option(
+        False,
+        "--move-reviewed",
+        help="Quarantine images found in deprecated ambiguous folders (moves files).",
+    ),
 ) -> None:
-    """Create class folders and class_folder_index.csv."""
-    created = scaffold_image_dataset(class_index_path=class_index, images_root=root)
+    """Create class folders, mark deprecated ambiguous folders, and index them."""
+    from birdidex.images import (
+        scan_class_folders,
+        write_deprecated_folder_report,
+    )
+
+    created = scaffold_image_dataset(
+        class_index_path=class_index, images_root=root, move_reviewed=move_reviewed
+    )
+    classes = load_class_index(class_index)
+    scan = scan_class_folders(classes, images_root=root)
+    report = write_deprecated_folder_report(classes, images_root=root)
     console.print(f"scaffolded {len(created)} directories")
     console.print(f"class folder index: {class_folder_index_path(root)}")
+    console.print(
+        f"deprecated folders with images: {report['deprecated_folders_with_images']} "
+        f"(images needing review: {report['images_needing_review']}, "
+        f"quarantined: {report['images_quarantined']})"
+    )
+    if scan["deprecated_with_images"] and not move_reviewed:
+        console.print(
+            "[yellow]ambiguous folders still hold images; pass --move-reviewed to quarantine[/]"
+        )
 
 
 @images_app.command("fetch-manifest")
@@ -183,6 +212,23 @@ def images_fetch(
     only: list[str] = typer.Option(
         [], "--class", help="Limit to class id/label/folder (repeatable)."
     ),
+    fresh: bool = typer.Option(
+        False,
+        "--fresh",
+        help="Skip already-downloaded photos and fetch quality-ranked fresh ones "
+        "(implies --skip-existing --order quality --min-edge 800).",
+    ),
+    skip_existing: bool = typer.Option(
+        False, "--skip-existing", help="Never re-download photos already on disk."
+    ),
+    order: str = typer.Option(
+        "recent",
+        "--order",
+        help="'quality' = iNaturalist most-faved first; 'recent' = newest first.",
+    ),
+    min_edge: int = typer.Option(
+        0, "--min-edge", min=0, help="Reject source photos whose shortest side is under N px."
+    ),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Fetch and validate metadata only; download nothing."
     ),
@@ -190,8 +236,19 @@ def images_fetch(
     """Download open-license images for clean classifier classes (opt-in network use)."""
     from birdidex.download import collect_images
 
+    if fresh:
+        skip_existing = True
+        if order == "recent":
+            order = "quality"
+        if min_edge == 0:
+            min_edge = 800
+    order_norm = "votes" if order in ("quality", "votes", "best") else "recent"
+
     if provider:
         provider_names = tuple(provider)
+    elif fresh or order_norm == "votes":
+        # Quality ranking is iNaturalist-specific; default fresh runs to it.
+        provider_names = ("inaturalist",)
     else:
         from birdidex.providers import PROVIDERS
 
@@ -208,6 +265,9 @@ def images_fetch(
         image_format=image_format,
         quality=quality,
         keep_originals=keep_originals,
+        skip_existing=skip_existing,
+        min_source_edge=min_edge,
+        order=order_norm,
         dry_run=dry_run,
     )
     mode = "dry-run" if summary.dry_run else "download"
@@ -215,6 +275,8 @@ def images_fetch(
         f"{mode}: classes={summary.classes_processed} accepted={summary.accepted} "
         f"rejected={summary.rejected} duplicates={summary.skipped_duplicate}"
     )
+    if skip_existing:
+        console.print("[dim]skip-existing: photos already on disk were left untouched[/]")
     console.print(f"records: {summary.records_path}")
 
 
@@ -721,6 +783,194 @@ def audit_dataset(
     console.print(f"json: {dataset_audit_json_path()}")
     console.print(f"html: {dataset_audit_html_path()}")
     console.print(f"csv: {species_coverage_csv_path()}")
+
+
+def _taxonomy_classes(class_index: Path) -> list:
+    return load_class_index(class_index)
+
+
+@taxonomy_app.command("audit")
+def taxonomy_audit(
+    class_index: Path = typer.Option(default_class_index_path(), help="Class index JSON."),
+) -> None:
+    """Detect ambiguous classes and write the taxonomy audit reports."""
+    from birdidex import taxonomy_expand as tx
+
+    classes = _taxonomy_classes(class_index)
+    overrides = tx.load_manual_overrides()
+    expansion = tx.expand_ambiguous(classes, overrides=overrides)
+    summary = tx.write_ambiguous_reports(classes, expansion)
+    console.print(
+        f"ambiguous={summary['n_ambiguous_classes']} "
+        f"candidates={summary['n_expansion_candidates']} "
+        f"new_species={summary['n_addable_new_species']} "
+        f"clean={summary['n_clean_classifier_classes']}/{summary['n_classes']}"
+    )
+    console.print(f"reasons/candidates: {tx.taxonomy_audit_md_path()}")
+    console.print(f"ambiguous classes: {tx.ambiguous_classes_csv_path()}")
+    if overrides.source_path:
+        console.print(f"manual overrides: {overrides.source_path}")
+
+
+def _live_progress(done: int, total: int, name: str) -> None:
+    if done == 1 or done == total or done % 25 == 0:
+        console.print(f"[dim]  scoured {done}/{total} ({name})[/]")
+
+
+@taxonomy_app.command("expand-ambiguous")
+def taxonomy_expand_ambiguous(
+    class_index: Path = typer.Option(default_class_index_path(), help="Class index JSON."),
+    live: bool = typer.Option(
+        False, "--live", help="Scour iNaturalist/eBird taxonomy to enrich names and ids."
+    ),
+    wikipedia: bool = typer.Option(
+        False, "--wikipedia", help="Also fetch Wikipedia summaries (implies --live)."
+    ),
+    throttle: float = typer.Option(0.25, "--throttle", help="Seconds between live requests."),
+) -> None:
+    """Propose concrete Australian species for each ambiguous class (writes a candidate index)."""
+    from birdidex import taxonomy_expand as tx
+
+    live = live or wikipedia
+    classes = _taxonomy_classes(class_index)
+    overrides = tx.load_manual_overrides()
+    expansion = tx.expand_ambiguous(classes, overrides=overrides)
+    tx.write_ambiguous_reports(classes, expansion)
+
+    ebird_key = None
+    if live:
+        from birdidex.secrets import get_ebird_api_key
+
+        ebird_key = get_ebird_api_key()
+        console.print("[dim]scouring iNaturalist/eBird for names (opt-in network)…[/]")
+    candidate, aliases, errors = tx.build_enriched_candidate(
+        classes,
+        expansion,
+        overrides=overrides,
+        live=live,
+        ebird_api_key=ebird_key,
+        use_wikipedia=wikipedia,
+        throttle=throttle,
+        progress=_live_progress if live else None,
+    )
+    tx.write_candidate_index(candidate)
+    if live:
+        tx.write_alias_lexicon(aliases)
+    for err in errors[:10]:
+        console.print(f"[yellow]  provider issue: {err}[/]")
+
+    console.print(
+        f"expanded {candidate['n_deprecated']} ambiguous classes -> "
+        f"{len(expansion)} candidates ({candidate['n_proposed_new']} new species proposed)"
+    )
+    console.print(f"candidate index: {tx.class_index_candidate_path()}")
+    console.print(f"expansion candidates: {tx.ambiguous_expansion_candidates_csv_path()}")
+    console.print(f"replacement map: {tx.class_replacement_map_csv_path()}")
+    console.print(
+        "[dim]Review the candidate index, then: taxonomy apply-candidate --confirm[/]"
+    )
+
+
+@taxonomy_app.command("build-aliases")
+def taxonomy_build_aliases(
+    class_index: Path = typer.Option(default_class_index_path(), help="Class index JSON."),
+    live: bool = typer.Option(
+        False, "--live", help="Scour iNaturalist for all names + eBird species codes."
+    ),
+    wikipedia: bool = typer.Option(
+        False, "--wikipedia", help="Also fetch Wikipedia summaries/field notes (implies --live)."
+    ),
+    throttle: float = typer.Option(0.25, "--throttle", help="Seconds between live requests."),
+) -> None:
+    """Build the alias/search-term lexicon for every clean + newly proposed species."""
+    from birdidex import taxonomy_expand as tx
+
+    live = live or wikipedia
+    classes = _taxonomy_classes(class_index)
+    overrides = tx.load_manual_overrides()
+    expansion = tx.expand_ambiguous(classes, overrides=overrides)
+
+    ebird_key = None
+    if live:
+        from birdidex.secrets import get_ebird_api_key
+
+        ebird_key = get_ebird_api_key()
+        console.print("[dim]scouring iNaturalist for every name (opt-in network)…[/]")
+    candidate, records, errors = tx.build_enriched_candidate(
+        classes,
+        expansion,
+        overrides=overrides,
+        live=live,
+        ebird_api_key=ebird_key,
+        use_wikipedia=wikipedia,
+        throttle=throttle,
+        progress=_live_progress if live else None,
+    )
+    json_path, csv_path = tx.write_alias_lexicon(records)
+    tx.write_candidate_index(candidate)
+    for err in errors[:10]:
+        console.print(f"[yellow]  provider issue: {err}[/]")
+
+    total_aliases = sum(len(rec.aliases) for rec in records)
+    enriched = sum(1 for rec in records if rec.inaturalist_taxon_id)
+    console.print(
+        f"alias lexicon: {len(records)} species, {total_aliases} aliases "
+        f"({enriched} iNaturalist-enriched)"
+    )
+    console.print(f"json: {json_path}")
+    console.print(f"csv: {csv_path}")
+
+
+@taxonomy_app.command("validate-candidate")
+def taxonomy_validate_candidate(
+    candidate: Path = typer.Option(None, "--candidate", help="Candidate class index JSON."),
+    root: Path = typer.Option(images_dir(), help="Image dataset root."),
+) -> None:
+    """Check candidate class-index consistency and image-folder safety."""
+    from birdidex import taxonomy_expand as tx
+
+    report = tx.validate_candidate_index(candidate, images_root=root)
+    for key, value in report.summary.items():
+        console.print(f"  {key}: {value}")
+    for warning in report.warnings:
+        console.print(f"[yellow]warning: {warning}[/]")
+    for error in report.errors:
+        console.print(f"[red]error: {error}[/]")
+    if report.ok:
+        console.print("[green]candidate index is valid[/]")
+    else:
+        console.print("[red]candidate index has errors (not safe to apply)[/]")
+        raise typer.Exit(1)
+
+
+@taxonomy_app.command("apply-candidate")
+def taxonomy_apply_candidate(
+    confirm: bool = typer.Option(
+        False, "--confirm", help="Actually overwrite class_index.json (validation must pass)."
+    ),
+    candidate: Path = typer.Option(None, "--candidate", help="Candidate class index JSON."),
+    class_index: Path = typer.Option(
+        default_class_index_path(), help="Target class index to overwrite."
+    ),
+    root: Path = typer.Option(images_dir(), help="Image dataset root."),
+) -> None:
+    """Replace class_index.json with the reviewed candidate (after validation)."""
+    from birdidex import taxonomy_expand as tx
+
+    report = tx.apply_candidate_index(
+        candidate_path=candidate, target_path=class_index, images_root=root, confirm=confirm
+    )
+    for error in report.errors:
+        console.print(f"[red]error: {error}[/]")
+    for warning in report.warnings:
+        console.print(f"[yellow]{warning}[/]")
+    if not report.ok:
+        raise typer.Exit(1)
+    if confirm and report.summary.get("written"):
+        console.print(f"[green]wrote {report.summary['written']}[/]")
+        console.print("Next: uv run birdidex images scaffold && uv run birdidex audit dataset")
+    else:
+        console.print("[dim]validation passed; re-run with --confirm to write class_index.json[/]")
 
 
 @ui_app.command("serve")

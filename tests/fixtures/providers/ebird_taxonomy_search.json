@@ -1,0 +1,29 @@
+[
+  {
+    "sciName": "Malurus cyaneus",
+    "comName": "Superb Fairywren",
+    "speciesCode": "supfai1",
+    "category": "species",
+    "taxonOrder": 12345,
+    "familyComName": "Australasian Wrens",
+    "familySciName": "Maluridae"
+  },
+  {
+    "sciName": "Malurus lamberti",
+    "comName": "Variegated Fairywren",
+    "speciesCode": "varfai2",
+    "category": "species"
+  },
+  {
+    "sciName": "Malurus melanocephalus",
+    "comName": "Red-backed Fairywren",
+    "speciesCode": "rebfai1",
+    "category": "species"
+  },
+  {
+    "sciName": "Malurus",
+    "comName": "fairywren sp.",
+    "speciesCode": "y00000",
+    "category": "spuh"
+  }
+]

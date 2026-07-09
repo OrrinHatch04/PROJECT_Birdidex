@@ -178,6 +178,35 @@ def _default_metadata_fetcher(
     return fetch
 
 
+def _quality_metadata_fetcher(
+    http_client: Any | None,
+    *,
+    order: str,
+    min_edge: int,
+    exclude_ids: frozenset[tuple[str, str]],
+) -> MetadataFetcher:
+    """Fetcher that ranks iNaturalist by community votes and skips low-res/known photos.
+
+    Non-iNaturalist providers fall back to their normal (unranked) fetchers.
+    """
+    from birdidex.providers import FETCHERS, fetch_inaturalist_ranked
+
+    def fetch(provider_name: str, taxon: TaxonClass, limit: int) -> list[ImageMetadataRecord]:
+        if provider_name == "inaturalist":
+            return fetch_inaturalist_ranked(
+                taxon,
+                client=http_client,
+                live=True,
+                limit=limit,
+                order=order,
+                min_edge=min_edge,
+                exclude_ids=exclude_ids,
+            )
+        return FETCHERS[provider_name](taxon, client=http_client, live=True, limit=limit)
+
+    return fetch
+
+
 def _default_downloader() -> Downloader:
     import httpx
 
@@ -256,6 +285,9 @@ def collect_images(
     image_format: str = DEFAULT_FORMAT,
     quality: int = DEFAULT_QUALITY,
     keep_originals: bool = False,
+    skip_existing: bool = False,
+    min_source_edge: int = 0,
+    order: str = "recent",
     dry_run: bool = False,
     http_client: Any | None = None,
     downloader: Downloader | None = None,
@@ -277,13 +309,35 @@ def collect_images(
     selected = _select_classes(classes, include_ambiguous=include_ambiguous, only=only_classes)
     primary, fallback = _provider_order(provider_names)
 
-    fetch_metadata = metadata_fetcher or _default_metadata_fetcher(http_client)
-    fetch_bytes: Downloader | None = None if dry_run else downloader or _default_downloader()
-
     existing = {
         (record.provider, record.provider_record_id): record
         for record in read_metadata_jsonl(image_records_path(root))
     }
+    # When skipping already-downloaded photos, exclude their provider ids from new
+    # candidates and seed each class's dedup sets with what is already on disk, so we
+    # never re-download or store a near-duplicate of an existing image.
+    exclude_ids = frozenset(existing) if skip_existing else frozenset()
+    existing_sha_by_class: dict[int, set[str]] = {}
+    existing_phash_by_class: dict[int, list[str]] = {}
+    if skip_existing:
+        for record in existing.values():
+            if record.status != "accepted":
+                continue
+            if record.sha256:
+                existing_sha_by_class.setdefault(record.class_id, set()).add(record.sha256)
+            if record.phash:
+                existing_phash_by_class.setdefault(record.class_id, []).append(record.phash)
+
+    quality_mode = skip_existing or min_source_edge > 0 or order not in ("recent", "created")
+    if metadata_fetcher is not None:
+        fetch_metadata = metadata_fetcher
+    elif quality_mode:
+        fetch_metadata = _quality_metadata_fetcher(
+            http_client, order=order, min_edge=min_source_edge, exclude_ids=exclude_ids
+        )
+    else:
+        fetch_metadata = _default_metadata_fetcher(http_client)
+    fetch_bytes: Downloader | None = None if dry_run else downloader or _default_downloader()
 
     new_records: list[ImageMetadataRecord] = []
     per_class_results: list[ClassCollectResult] = []
@@ -291,8 +345,8 @@ def collect_images(
     for taxon in selected:
         result = ClassCollectResult(class_id=taxon.class_id, label=taxon.label)
         seen_provider_keys: set[tuple[str, str]] = set()
-        seen_sha: set[str] = set()
-        seen_phash: list[str] = []
+        seen_sha: set[str] = set(existing_sha_by_class.get(taxon.class_id, set()))
+        seen_phash: list[str] = list(existing_phash_by_class.get(taxon.class_id, []))
 
         for provider_name in [*primary, *fallback]:
             if provider_name in fallback and result.accepted >= target_accepted:
@@ -308,6 +362,26 @@ def collect_images(
                 if key in seen_provider_keys:
                     continue
                 seen_provider_keys.add(key)
+
+                if skip_existing and key in exclude_ids:
+                    # Already downloaded in a previous run — leave it untouched.
+                    continue
+
+                if (
+                    min_source_edge
+                    and record.width
+                    and record.height
+                    and min(record.width, record.height) < min_source_edge
+                ):
+                    result.rejected += 1
+                    new_records.append(
+                        replace(
+                            record,
+                            status="quarantine",
+                            validation_issues=[*record.validation_issues, "below_min_source_edge"],
+                        )
+                    )
+                    continue
 
                 if record.status != "accepted":
                     result.rejected += 1

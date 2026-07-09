@@ -11,8 +11,7 @@ from birdidex.observations import (
     ObservationRecord,
     observation_json_schema,
 )
-from birdidex.profiles import build_profiles
-from birdidex.profiles import load_species_profiles, lookup_profile
+from birdidex.profiles import build_profiles, load_species_profiles, lookup_profile
 from birdidex.providers import ImageMetadataRecord
 
 

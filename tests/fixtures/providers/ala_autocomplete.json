@@ -1,0 +1,26 @@
+{
+  "autoCompleteList": [
+    {
+      "name": "Malurus cyaneus",
+      "commonName": "Superb Fairy-wren",
+      "commonNameSingle": "Superb Fairywren",
+      "guid": "https://biodiversity.org.au/afd/taxa/2f0e1234-superb",
+      "rankString": "species",
+      "classs": "Aves"
+    },
+    {
+      "name": "Malurus lamberti",
+      "commonName": "Variegated Fairy-wren",
+      "guid": "urn:lsid:biodiversity.org.au:afd.taxon:variegated",
+      "rankString": "species",
+      "classs": "Aves"
+    },
+    {
+      "name": "Acacia cyanophylla",
+      "commonName": "Blue-leaved Wattle",
+      "guid": "urn:lsid:plant:wattle",
+      "rankString": "species",
+      "classs": "Equisetopsida"
+    }
+  ]
+}

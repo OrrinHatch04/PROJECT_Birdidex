@@ -33,12 +33,32 @@ class TaxonClass:
         return class_folder_name(self.class_id, self.label)
 
     @property
+    def taxon_rank(self) -> str | None:
+        rank = self.raw.get("taxon_rank") if self.raw else None
+        return str(rank) if rank else None
+
+    @property
+    def ambiguity_reasons(self) -> tuple[str, ...]:
+        return tuple(
+            ambiguity_reasons(
+                self.common_name,
+                self.scientific_name,
+                label=self.label,
+                taxon_rank=self.taxon_rank,
+            )
+        )
+
+    @property
     def is_ambiguous(self) -> bool:
-        return is_ambiguous_taxon(self.common_name, self.scientific_name)
+        return bool(self.ambiguity_reasons)
+
+    @property
+    def is_deprecated(self) -> bool:
+        return bool(self.raw.get("deprecated")) if self.raw else False
 
     @property
     def clean_classifier_class(self) -> bool:
-        return not self.is_ambiguous
+        return not self.is_ambiguous and not self.is_deprecated
 
 
 def slugify(text: str) -> str:
@@ -71,13 +91,86 @@ def class_folder_name(class_id: int, label: str) -> str:
     return f"{class_id:03d}.{clean_label}"
 
 
-def is_ambiguous_taxon(common_name: str | None, scientific_name: str | None) -> bool:
+# A scientific name that is a family (``-idae``) or subfamily (``-inae``) rank rather
+# than a binomial. Matched as a standalone token so real genus/species names are safe.
+_FAMILY_RANK_RE = re.compile(r"\b[A-Z][a-z]+(?:idae|inae)\b")
+
+# Words that mark a grouping / uncertainty rather than a single concrete species.
+_GROUP_WORD_RE = re.compile(
+    r"\b(?:group|complex|hybrid|unidentified|unknown|indet|agg)\b",
+    re.IGNORECASE,
+)
+
+# ``taxon_rank`` values (when a provider supplies one) that are still species-level.
+_SPECIES_LEVEL_RANKS: frozenset[str] = frozenset(
+    {"", "species", "subspecies", "form", "variety", "issf", "morph", "domestic"}
+)
+
+
+def ambiguity_reasons(
+    common_name: str | None,
+    scientific_name: str | None,
+    *,
+    label: str | None = None,
+    taxon_rank: str | None = None,
+) -> list[str]:
+    """Return the ordered, de-duplicated reasons a taxon is ambiguous (empty if clean).
+
+    A taxon is ambiguous when it names a group, an uncertain identification, or a rank
+    above species instead of one concrete species. These are not valid classifier
+    classes and are excluded from automatic image downloading/training.
+    """
+    common = common_name or ""
+    scientific = scientific_name or ""
+    lab = label or ""
+    reasons: list[str] = []
+
+    if "sp." in common.lower():
+        reasons.append("common_name_sp")
+    if "sp." in scientific.lower():
+        reasons.append("scientific_name_sp")
+    if "/" in common:
+        reasons.append("common_name_slash")
+    if "/" in scientific:
+        reasons.append("scientific_name_slash")
+    if lab.lower().endswith("_sp"):
+        reasons.append("label_sp_suffix")
+    if _FAMILY_RANK_RE.search(scientific):
+        reasons.append("family_or_subfamily_level")
+
+    stripped = normalise_scientific_name(scientific)
+    tokens = stripped.split()
+    if (
+        len(tokens) == 1
+        and tokens[0][:1].isupper()
+        and tokens[0].isalpha()
+        and not _FAMILY_RANK_RE.search(stripped)
+    ):
+        reasons.append("genus_only")
+
+    if _GROUP_WORD_RE.search(common) or _GROUP_WORD_RE.search(scientific):
+        reasons.append("group_word")
+
+    if taxon_rank and taxon_rank.strip().lower() not in _SPECIES_LEVEL_RANKS:
+        reasons.append("rank_above_species")
+
+    # Preserve first-seen order while removing duplicates.
+    return list(dict.fromkeys(reasons))
+
+
+def is_ambiguous_taxon(
+    common_name: str | None,
+    scientific_name: str | None,
+    *,
+    label: str | None = None,
+    taxon_rank: str | None = None,
+) -> bool:
     """Return True for taxa that are not clean classifier classes."""
-    for value in (common_name or "", scientific_name or ""):
-        lowered = value.lower()
-        if "sp." in lowered or "/" in lowered:
-            return True
-    return False
+    return bool(
+        ambiguity_reasons(
+            common_name, scientific_name, label=label, taxon_rank=taxon_rank
+        )
+    )
 
 
 def _tuple(value: Any) -> tuple[str, ...]:

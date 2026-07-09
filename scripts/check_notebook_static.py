@@ -33,7 +33,7 @@ SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("OpenAI-style token", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
     (
         "hard-coded API key or token assignment",
-        re.compile(r"(?i)\b(api[_-]?key|access[_-]?token)\b\s*=\s*['\"][^'\"]{8,}['\"]"),
+        re.compile(r"(?i)(api[_-]?key|access[_-]?token)\b\s*=\s*['\"][^'\"]{8,}['\"]"),
     ),
     (
         "hard-coded master seed assignment",

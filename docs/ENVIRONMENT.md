@@ -19,6 +19,20 @@ ${workspaceFolder}/.venv/bin/python
 
 Prefer `uv run ...` or Makefile targets so commands use the project environment.
 
+## Docker / VSCodium Notebooks
+
+For a containerized notebook kernel, use:
+
+```bash
+make docker-jupyter
+```
+
+This builds the full `uv sync --all-groups` environment in Docker and registers a Jupyter kernel
+named `BIRDIDEX uv (.venv)`. In VSCodium, use `Select Kernel` and choose that kernel after reopening
+the repo in the dev container, or connect to the existing Jupyter server at `http://127.0.0.1:8888`.
+
+See `docs/CONTAINER.md` for details.
+
 ## Dependency Groups
 
 | Group | Command | Contains |

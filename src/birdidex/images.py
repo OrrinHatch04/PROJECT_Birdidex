@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import html
 import json
+import shutil
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -33,6 +34,16 @@ REPORTS_DIR = "reports"
 CLASS_FOLDER_INDEX = "class_folder_index.csv"
 DATASET_MANIFEST = "image_dataset_manifest.json"
 IMAGE_RECORDS = "image_records.jsonl"
+DEPRECATED_MARKER = "DEPRECATED_DO_NOT_TRAIN.txt"
+DEPRECATED_FOLDER_REPORT = "deprecated_ambiguous_folders.csv"
+IMAGE_EXTENSIONS: frozenset[str] = frozenset(
+    {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff"}
+)
+
+
+def is_deprecated_class(taxon: TaxonClass) -> bool:
+    """A class whose folder must be marked deprecated and kept out of training."""
+    return taxon.is_deprecated or taxon.is_ambiguous
 
 
 @dataclass(frozen=True)
@@ -107,10 +118,7 @@ def letterbox_image(
     fill: tuple[int, int, int] = (0, 0, 0),
 ) -> Any:
     """Fit an RGB image inside ``size`` and pad the remaining area."""
-    if isinstance(size, int):
-        target = (size, size)
-    else:
-        target = size
+    target = (size, size) if isinstance(size, int) else size
     if target[0] <= 0 or target[1] <= 0:
         raise ValueError("letterbox target dimensions must be positive")
 
@@ -171,8 +179,15 @@ def scaffold_image_dataset(
     *,
     class_index_path: Path | None = None,
     images_root: Path | None = None,
+    move_reviewed: bool = False,
 ) -> list[Path]:
-    """Create ImageFolder-style class directories from ``class_index.json`` only."""
+    """Create ImageFolder-style class directories from ``class_index.json`` only.
+
+    New concrete classes get folders. Deprecated (ambiguous) classes keep their folders
+    but are marked with a ``DEPRECATED`` file and are never used for training. No image
+    files are moved unless ``move_reviewed=True`` is passed, in which case any images in
+    deprecated folders are quarantined for manual per-species reassignment.
+    """
     root = images_root or default_images_dir()
     classes = load_class_index(class_index_path)
     created: list[Path] = []
@@ -193,7 +208,157 @@ def scaffold_image_dataset(
             created.append(path)
 
     write_class_folder_index_csv(classes, class_folder_index_path(root))
+    write_deprecated_markers(classes, images_root=root)
+    quarantined = quarantine_deprecated_images(classes, images_root=root, move=move_reviewed)
+    write_deprecated_folder_report(classes, quarantined, images_root=root)
     return created
+
+
+def write_deprecated_markers(
+    classes: list[TaxonClass],
+    *,
+    images_root: Path | None = None,
+) -> list[Path]:
+    """Drop a DEPRECATED marker in every deprecated (ambiguous) class folder."""
+    root = images_root or default_images_dir()
+    written: list[Path] = []
+    for taxon in classes:
+        if not is_deprecated_class(taxon):
+            continue
+        reasons = ", ".join(taxon.ambiguity_reasons) or "deprecated"
+        replacements = taxon.raw.get("replacement_class_ids") or []
+        text = (
+            f"DEPRECATED CLASS: {taxon.folder_name}\n"
+            "This is an ambiguous taxon (not a single concrete species). It is excluded "
+            "from classifier training and from automatic image download.\n"
+            f"Ambiguity reasons: {reasons}\n"
+            f"Replacement class ids: {replacements}\n"
+            "Do not train on these images. Reassign each image to a concrete species "
+            "folder (see data/taxonomy/class_replacement_map.csv), then remove this file.\n"
+        )
+        for stage in IMAGE_STAGES:
+            folder = root / stage / taxon.folder_name
+            if folder.exists():
+                marker = folder / DEPRECATED_MARKER
+                marker.write_text(text, encoding="utf-8")
+                written.append(marker)
+    return written
+
+
+def _class_images(folder: Path) -> list[Path]:
+    return [
+        path
+        for path in folder.rglob("*")
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+    ]
+
+
+def scan_class_folders(
+    classes: list[TaxonClass],
+    *,
+    images_root: Path | None = None,
+) -> dict[str, Any]:
+    """Report class folders vs the class index without moving any files."""
+    root = images_root or default_images_dir()
+    expected = {taxon.folder_name for taxon in classes}
+    deprecated = {taxon.folder_name for taxon in classes if is_deprecated_class(taxon)}
+
+    parents = [root / stage for stage in IMAGE_STAGES]
+    parents += [root / "splits" / split for split in SPLIT_NAMES]
+
+    extra_folders: list[str] = []
+    deprecated_with_images: list[dict[str, Any]] = []
+    for parent in parents:
+        if not parent.exists():
+            continue
+        for child in sorted(parent.iterdir()):
+            if not child.is_dir():
+                continue
+            if child.name not in expected:
+                extra_folders.append(str(child.relative_to(root)))
+            if child.name in deprecated:
+                images = _class_images(child)
+                if images:
+                    deprecated_with_images.append(
+                        {"folder": str(child.relative_to(root)), "image_count": len(images)}
+                    )
+    return {
+        "extra_folders": sorted(set(extra_folders)),
+        "deprecated_with_images": deprecated_with_images,
+    }
+
+
+def quarantine_deprecated_images(
+    classes: list[TaxonClass],
+    *,
+    images_root: Path | None = None,
+    move: bool = False,
+) -> list[dict[str, Any]]:
+    """List (and, when ``move`` is True, relocate) images in deprecated folders.
+
+    Images are moved into ``<root>/quarantine/<folder>/`` so a human can reassign them
+    to a concrete species. With ``move=False`` this only reports what *would* move.
+    """
+    root = images_root or default_images_dir()
+    deprecated = {taxon.folder_name for taxon in classes if is_deprecated_class(taxon)}
+    source_stages = [stage for stage in IMAGE_STAGES if stage != "quarantine"]
+    parents = [root / stage for stage in source_stages]
+    parents += [root / "splits" / split for split in SPLIT_NAMES]
+
+    actions: list[dict[str, Any]] = []
+    for parent in parents:
+        for folder_name in sorted(deprecated):
+            folder = parent / folder_name
+            if not folder.exists():
+                continue
+            for image in _class_images(folder):
+                dest = root / "quarantine" / folder_name / image.name
+                if move:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    if dest.exists():
+                        dest = dest.with_name(f"{image.stem}_{parent.name}{image.suffix}")
+                    shutil.move(str(image), str(dest))
+                actions.append(
+                    {
+                        "src": str(image.relative_to(root)),
+                        "dest": str(dest.relative_to(root)),
+                        "moved": move,
+                    }
+                )
+    return actions
+
+
+def write_deprecated_folder_report(
+    classes: list[TaxonClass],
+    quarantined: list[dict[str, Any]] | None = None,
+    *,
+    images_root: Path | None = None,
+) -> dict[str, Any]:
+    """Write ``reports/deprecated_ambiguous_folders.csv`` and return the scan summary."""
+    root = images_root or default_images_dir()
+    scan = scan_class_folders(classes, images_root=root)
+    quarantined = quarantined or []
+    moved = sum(1 for action in quarantined if action["moved"])
+    rows = [
+        {
+            "folder": entry["folder"],
+            "image_count": entry["image_count"],
+            "quarantined": str(moved > 0).lower(),
+            "needs_manual_review": "true",
+        }
+        for entry in scan["deprecated_with_images"]
+    ]
+    _write_count_csv(
+        root / REPORTS_DIR / DEPRECATED_FOLDER_REPORT,
+        ["folder", "image_count", "quarantined", "needs_manual_review"],
+        rows,
+    )
+    return {
+        "deprecated_folders_with_images": len(scan["deprecated_with_images"]),
+        "images_needing_review": sum(e["image_count"] for e in scan["deprecated_with_images"]),
+        "images_quarantined": moved,
+        "extra_folders": len(scan["extra_folders"]),
+    }
 
 
 def validate_no_extra_class_folders(

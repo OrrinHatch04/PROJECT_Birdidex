@@ -18,10 +18,12 @@ It does **not** yet train models or run real inference.
 
 - [Requirements](#requirements)
 - [Install](#install)
+- [Container notebook kernel](#container-notebook-kernel)
 - [Quick start](#quick-start)
 - [Repository layout](#repository-layout)
 - [Configuration and secrets](#configuration-and-secrets)
 - [The class index](#the-class-index)
+- [Taxonomy: ambiguous classes and aliases](#taxonomy-ambiguous-classes-and-aliases)
 - [CLI reference](#cli-reference)
 - [Dataset collection workflow](#dataset-collection-workflow)
 - [Image dataset scaffold](#image-dataset-scaffold)
@@ -62,6 +64,20 @@ Dependency groups are small and workflow-named; `--all-groups` installs everythi
 | `ui` | local FastAPI UI scaffold |
 
 The dataset collector, Big Bird audit, and dataset audit need the `vision` group.
+
+## Container notebook kernel
+
+The repo includes a Docker setup for VSCodium/Jupyter work. It builds the full
+`uv sync --all-groups` environment, registers an ipykernel named `BIRDIDEX uv (.venv)`, and exposes
+Jupyter Lab on localhost.
+
+```bash
+make docker-jupyter
+```
+
+Then in VSCodium use `Select Kernel` and choose either the running local Jupyter server at
+`http://127.0.0.1:8888` or, when reopened in the dev container, the `BIRDIDEX uv (.venv)` kernel.
+See [docs/CONTAINER.md](docs/CONTAINER.md) for the full workflow.
 
 ## Quick start
 
@@ -201,8 +217,85 @@ inferred from folders. Minimum schema:
 
 - `class_id`, `label`, `common_name`, and `scientific_name` are required; `class_id` must be unique
   and non-negative; `label` and folder name (`{class_id:03d}.{label}`) must be unique.
-- A taxon is **ambiguous** (not a clean classifier class, excluded from fetching by default) when its
-  common or scientific name contains `sp.` or `/`.
+- A taxon is **ambiguous** (not a clean classifier class, excluded from fetching/training by default)
+  when its common/scientific name contains `sp.` or `/`, its label ends in `_sp`, its scientific name
+  is genus-only or family/subfamily rank (`-idae`/`-inae`), it uses a grouping word
+  (`group`/`complex`/`hybrid`/`unidentified`), or provider metadata gives it a rank above species.
+
+## Taxonomy: ambiguous classes and aliases
+
+`sp.`, slash, genus-level, and family-level entries (e.g. `curlew sp.` / `Numenius sp.`,
+`kingfisher sp.` / `Alcedinidae sp.`, `Fairy/Tree Martin`) are **not** trainable classifier classes,
+so they are **excluded from automatic image download and training**. The `taxonomy` commands turn each
+ambiguous group into concrete Australian / SEQ species, build a robust alias/search-term layer, and
+regenerate the class index **safely** (nothing is overwritten until you confirm).
+
+- **Why exclude `sp.` classes** — a folder of mixed curlews or unidentified kingfishers teaches the
+  model nothing; every training class must be one species.
+- **How groups are expanded** — a curated, offline knowledge base (built from **eBird taxonomy**,
+  **Atlas of Living Australia**, and **iNaturalist** names) maps each group to concrete species, then
+  cross-checks them against the local ROI files (`region_species_presence.csv`,
+  `species_region_summary.json`). Candidates that already exist as clean classes are **linked to their
+  existing `class_id`**; only well-supported new species get appended ids. Each candidate is tagged
+  `confirmed_roi` / `likely_roi` / `australian_but_not_roi` / `uncertain` / `reject`. Provider search is
+  **opt-in** (`--live`); the default run is fully offline and deterministic.
+- **How aliases help collection** — every clean species gets canonical + provider names plus
+  hyphen/apostrophe and Australian/US **Grey/Gray** spelling variants, scientific synonyms, and safe
+  image-search terms (e.g. *Jabiru* for Black-necked Stork, *Grey Teal* for Gray Teal,
+  *Brush Turkey/Scrub Turkey* for Australian Brushturkey). Spelling and hyphen differences become
+  aliases, never duplicate classes.
+- **Scouring iNaturalist / Wikipedia (`--live` / `--wikipedia`)** — `build-aliases --live` looks up
+  every species on **iNaturalist** and merges *all* of its English vernacular names (e.g. Laughing
+  Kookaburra → *Laughing Jackass*, *Laughing Kingfisher*), records its iNaturalist taxon id and eBird
+  species code, and `--wikipedia` adds a page link and a short **field note**. Curated field notes
+  cover the identification detail that matters in the field — for example the Black-necked Stork
+  (Jabiru) is sexed by eye colour: **female = yellow iris, male = dark brown iris**. Responses are
+  cached under `data/cache/taxonomy/`, throttled, and interruptible; a plain (non-`--live`) run stays
+  fully offline.
+- **Adding every Australian species of a family** — the curated groups for **fairywrens** (all 10
+  Australian *Malurus*) and **kingfishers/kookaburras** (all 10 Australian species) are marked
+  "always include", so expansion adds each as its own class even when it is outside SEQ (tagged
+  `australian_but_not_roi`). Add more with `[[groups.<key>.candidates]]` in the local override file.
+
+```text
+uv run birdidex taxonomy audit                  # detect ambiguous classes, write audit reports
+uv run birdidex taxonomy expand-ambiguous       # propose species + write class_index_candidate.json
+uv run birdidex taxonomy build-aliases          # alias/search-term lexicon for all clean species
+uv run birdidex taxonomy build-aliases --live --wikipedia   # scour iNaturalist + Wikipedia names
+uv run birdidex taxonomy validate-candidate     # check consistency + image-folder safety
+# after reviewing data/taxonomy/class_index_candidate.json:
+uv run birdidex taxonomy apply-candidate --confirm   # only this writes class_index.json
+uv run birdidex images scaffold                 # folders for new classes; mark deprecated ones
+uv run birdidex audit dataset
+```
+
+Outputs land in `data/taxonomy/` (generated files are git-ignored; the example override is committed):
+
+| File | What it is |
+| --- | --- |
+| `ambiguous_classes.csv` | every ambiguous class, its reasons, and its group |
+| `ambiguous_expansion_candidates.csv` | concrete species proposed per group, with status + evidence |
+| `class_replacement_map.csv` | old ambiguous class → replacement species mapping |
+| `alias_lexicon.json` / `.csv` | per-species aliases, synonyms, provider ids, search terms |
+| `taxonomy_audit.json` / `.md` | human-readable audit of the whole expansion |
+| `class_index_candidate.json` | proposed class index — **review before applying** |
+| `manual_overrides.example.toml` | template for local Australian naming decisions |
+
+**Reviewing before applying.** `expand-ambiguous` never overwrites `class_index.json`; it writes
+`class_index_candidate.json`. Ambiguous classes are marked **deprecated (never deleted)** and annotated
+with the class ids they expand into. Run `validate-candidate`, read `taxonomy_audit.md`, then
+`apply-candidate --confirm` to promote the candidate. `--live` on `expand-ambiguous`/`build-aliases`
+adds eBird/iNaturalist/ALA confirmation and ids (needs `EBIRD_API_KEY`; failures are non-fatal).
+
+**Quarantining old images.** `images scaffold` creates folders for the new concrete species, drops a
+`DEPRECATED_DO_NOT_TRAIN.txt` marker into every deprecated ambiguous folder, and reports any that still
+hold images (`data/images/reports/deprecated_ambiguous_folders.csv`). **No image files are moved** until
+you pass `images scaffold --move-reviewed`, which quarantines them to `data/images/quarantine/<folder>/`
+for manual per-species reassignment.
+
+**Local naming decisions.** Copy `data/taxonomy/manual_overrides.example.toml` to
+`manual_overrides.local.toml` (git-ignored) to force a candidate's status, add extra candidates to a
+group, or add/reject aliases for any species. The `taxonomy` commands read it automatically.
 
 ## CLI reference
 
@@ -227,6 +320,13 @@ uv run birdidex images split --train 0.75 --val 0.15 --test 0.10 --seed 42
 # legacy multi-provider commands (iNaturalist/ALA/GBIF/Wikimedia/Openverse):
 uv run birdidex images fetch-manifest
 uv run birdidex images fetch --all --per-class 250 --target-accepted 200
+
+# taxonomy: expand ambiguous "sp." classes into concrete species + build aliases
+uv run birdidex taxonomy audit
+uv run birdidex taxonomy expand-ambiguous [--live]
+uv run birdidex taxonomy build-aliases [--live]
+uv run birdidex taxonomy validate-candidate
+uv run birdidex taxonomy apply-candidate --confirm       # only after manual review
 
 # audit / profiles / observations / Big Bird
 uv run birdidex audit dataset

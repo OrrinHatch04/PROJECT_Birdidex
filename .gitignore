@@ -57,6 +57,12 @@ data/profiles/*
 !data/cache/.gitkeep
 !data/profiles/.gitkeep
 
+# Taxonomy layer: generated audit/candidate/lexicon outputs and the local override
+# copy are NOT committed; the example override template and .gitkeep are.
+data/taxonomy/*
+!data/taxonomy/.gitkeep
+!data/taxonomy/manual_overrides.example.toml
+
 # Local databases (SQLite observation log)
 *.sqlite3
 *.sqlite
